@@ -23,7 +23,7 @@ class MassSample:
 
     def __init__(self):
         self.mass: float = mu
-        self.pos: Vec3 = rd.rand(3) * size
+        self.pos: Vec3 = rd.rand(3) * size - size / 2
         self.prev_pos: Vec3 = np.copy(self.pos)  # + rd.randn(3)
         self.index: int = 0
 
