@@ -1,4 +1,4 @@
-from typing import Generic, List, Optional, TypeVar
+from typing import Callable, Generic, List, Optional, TypeVar
 
 import numpy as np
 import numpy.random as rd
@@ -56,8 +56,11 @@ class FMMCell:
         self.extension: float = 0
         self.neighbors: List[int] = []
 
-    def contains_sample(self, sample):
+    def contains_sample(self, sample: MassSample):
         return np.abs(self.centroid - sample.pos).max() < self.size / 2
+
+    def __str__(self):
+        return f"Cell(centroid: {self.centroid}, size: {self.size}, mass: {self.mass}, nparticles: {len(self.samples)})"
 
 
 T = TypeVar("T")
@@ -81,12 +84,21 @@ class OctTree(Generic[T]):
         for child in self.children:
             child.parent = self
 
+    def pretty_print(self, indent: int = 0) -> None:
+        print("  " * indent + "OctTree{")
+        if self.children is None:
+            print("  " * (indent + 2) + str(self.value))
+        else:
+            for child in self.children:
+                child.pretty_print(indent + 1)
+        print("  " * indent + "}")
+
 
 class FMMSolver:
     """
     Fields:
        size: size of the simulation cube (float)
-       phi: function representing the potential of one "particle" (Callable[float, float])
+       phi: function representing the potential of one "particle" (Callable[[float], float])
        dt: timestep (float)
        tree: octree of the volume cells (OctTree)
        samples: list of mass samples (MassSample)
@@ -94,7 +106,14 @@ class FMMSolver:
        n_max: max number of particles per leaf cell (int)
     """
 
-    def __init__(self, size, phi, dt, samples, n_max):
+    def __init__(
+        self,
+        size: float,
+        phi: Callable[[float], float],
+        dt: float,
+        samples: List[MassSample],
+        n_max: int,
+    ):
         self.size = size
         self.phi = phi
         self.dt = dt
@@ -102,6 +121,8 @@ class FMMSolver:
         self.samples = samples
         self.epsilon = 4 * size / np.sqrt(len(samples))
         self.n_max = n_max
+
+        self.leaves_cells: List[FMMCell] = []
 
     def make_tree(self):
         self.tree.value = FMMCell(self.samples, np.zeros(3), self.size)
@@ -112,24 +133,25 @@ class FMMSolver:
             assert cell is not None
 
             if len(cell.samples) <= self.n_max:
+                self.leaves_cells.append(cell)
                 continue
 
             new_size = cell.size / 2
 
-            new_cells = []
+            new_cells: List[FMMCell] = []
             for i1 in [-1, 1]:
                 for i2 in [-1, 1]:
                     for i3 in [-1, 1]:
-                        cell = FMMCell(
+                        new_cell = FMMCell(
                             [],
                             cell.centroid + np.array([i1, i2, i3]) * new_size / 2,
                             new_size,
                         )
-                        new_cells.append(cell)
+                        new_cells.append(new_cell)
 
             for sample in cell.samples:
                 for new_cell in new_cells:
-                    if new_cell.contains(sample):
+                    if new_cell.contains_sample(sample):
                         new_cell.samples.append(sample)
 
             tree.make_children()
@@ -137,3 +159,13 @@ class FMMSolver:
             for child, cell in zip(tree.children, new_cells):
                 child.value = cell
                 tree_stack.append(child)
+
+    # def compute_multipole_extension_barycenter(self):
+    #     for cell in self.leaves_cells:
+    #         cell.mass = 0
+    #         cell.barycenter = np.zeros(0)
+    #         cell.extension = 0
+    #         for sample in cell.samples:
+    #             cell.mass += sample.mass
+    #             cell.barycenter += sample.mass * sample.pos
+    #             cell.extension = max(cell.extension, np.linalg.norm(sample.pos - cell.centroid))
