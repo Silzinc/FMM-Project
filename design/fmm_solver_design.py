@@ -1,4 +1,5 @@
-from typing import Callable, Generic, List, Optional, TypeVar
+from collections import deque
+from typing import Callable, Deque, Generic, List, Optional, Tuple, TypeVar
 
 import numpy as np
 import numpy.random as rd
@@ -124,7 +125,7 @@ class FMMSolver:
 
         self.leaves_cells: List[OctTree[FMMCell]] = []
 
-    def make_tree(self):
+    def make_tree(self) -> None:
         self.tree.value = FMMCell(self.samples, np.zeros(3), self.size)
         tree_stack = [self.tree]
         while len(tree_stack) != 0:
@@ -160,12 +161,80 @@ class FMMSolver:
                 child.value = cell
                 tree_stack.append(child)
 
-    # def compute_multipole_extension_barycenter(self):
-    #     for cell in self.leaves_cells:
-    #         cell.mass = 0
-    #         cell.barycenter = np.zeros(0)
-    #         cell.extension = 0
-    #         for sample in cell.samples:
-    #             cell.mass += sample.mass
-    #             cell.barycenter += sample.mass * sample.pos
-    #             cell.extension = max(cell.extension, np.linalg.norm(sample.pos - cell.centroid))
+    def compute_multipole_extension_barycenter(self) -> None:
+        cell_stack = self.leaves_cells.copy()
+        index = 0
+        while index < len(cell_stack):
+            tree = cell_stack[index]
+            cell = tree.value
+            assert cell is not None
+            if cell.mass != 0:
+                # In this case, the calculation has already been done
+                index += 1
+                continue
+
+            assert np.linalg.norm(cell.barycenter) == 0
+            assert cell.extension == 0
+
+            if tree.children is None:
+                # Then the cell is a leaf
+                for sample in cell.samples:
+                    cell.mass += sample.mass
+                    cell.barycenter += sample.mass * sample.pos
+                cell.barycenter /= cell.mass
+                for sample in cell.samples:
+                    cell.extension = max(
+                        cell.extension, np.linalg.norm(sample.pos - cell.barycenter)
+                    )
+
+            else:
+                # Then the cell is a parent
+                for child in tree.children:
+                    child_cell = child.value
+                    assert child_cell is not None
+                    cell.mass += child_cell.mass
+                    cell.barycenter += child_cell.mass * child_cell.barycenter
+                cell.barycenter /= cell.mass
+                for child in tree.children:
+                    child_cell = child.value
+                    assert child_cell is not None
+                    cell.extension = max(
+                        cell.extension,
+                        child_cell.extension
+                        + np.linalg.norm(child_cell.barycenter - cell.barycenter),
+                    )
+
+            # Add parent to the working stack if any
+            if tree.parent is not None:
+                cell_stack.append(tree.parent)
+
+            index += 1
+
+    def compute_field_tensors(self) -> None:
+        cell_pairs: Deque[Tuple[OctTree[FMMCell], OctTree[FMMCell]]] = deque()
+        cell_pairs.append((self.tree, self.tree))
+        while not len(cell_pairs) == 0:
+            (tree1, tree2) = cell_pairs.popleft()
+            cell1 = tree1.value
+            cell2 = tree2.value
+            assert cell1 is not None
+            assert cell2 is not None
+            # If the extents of the cells overlap, i.e. if w1 + w2 >= |z1 - z2|,
+            # subdivide the biggest cell into 8 children for this interaction
+            if cell1.extension + cell2.extension >= np.linalg.norm(
+                cell1.barycenter - cell2.barycenter
+            ):
+                if cell1.extension >= cell2.extension:
+                    assert tree1.children is not None
+                    for child in tree1.children:
+                        cell_pairs.append((child, tree2))
+                else:
+                    assert tree2.children is not None
+                    for child in tree2.children:
+                        cell_pairs.append((tree1, child))
+
+            else:
+                # Otherwise, compute the field tensor
+                # Under a order-1 approximation of the potential, the contribution of cell1 to cell2's tensor is
+                # [m1 * phi(z1 - z2), m1 * grad(phi)(z1 - z2)]
+                pass
