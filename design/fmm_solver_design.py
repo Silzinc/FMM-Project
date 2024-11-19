@@ -26,13 +26,9 @@ class MassSample:
         self.mass: float = mu
         self.pos: Vec3 = rd.rand(3) * size - size / 2
         self.prev_pos: Vec3 = np.copy(self.pos)  # + rd.randn(3)
-        self.index: int = 0
 
     def speed(self, dt: float) -> Vec3:
         return (self.pos - self.prev_pos) / dt
-
-    def update_id(self, index: int) -> None:
-        self.index = index
 
 
 class FMMCell:
@@ -122,6 +118,7 @@ class FMMSolver:
         self.samples = samples
         self.epsilon = 4 * size / np.sqrt(len(samples))
         self.n_max = n_max
+        self.G = 1
 
         self.leaves_cells: List[OctTree[FMMCell]] = []
 
@@ -238,3 +235,42 @@ class FMMSolver:
                 # Under a order-1 approximation of the potential, the contribution of cell1 to cell2's tensor is
                 # [m1 * phi(z1 - z2), m1 * grad(phi)(z1 - z2)]
                 pass
+
+        def update(self):
+            for tree in self.leaves_cells:
+                cell = tree.value
+                assert cell is not None
+                for sample in cell.samples:
+                    grad_potential = np.zeros(3)
+                    grad_potential += self.compute_close(cell, sample)
+                    grad_potential += self.compute_far(cell)
+                    acc = grad_potential
+                    pos = sample.pos.copy()
+                    sample.pos = 2 * sample.pos - sample.prev_pos + acc * self.dt**2
+                    sample.prev_pos = pos
+
+        def compute_close(self, cell: FMMCell, sample: MassSample) -> Vec3:
+            grad_potential = np.zeros(3)
+            dx = self.epsilon / 10.0
+            x = sample.pos
+            for i in cell.neighbors:
+                neighbor_cell = self.leaves_cells[i].value
+                assert neighbor_cell is not None
+                for close_sample in neighbor_cell.samples:
+                    x_i = close_sample.pos
+                    if np.linalg.norm(x - x_i) == 0:
+                        break
+                    dist = np.linalg.norm(x - x_i) / self.epsilon
+                    for i in range(3):
+                        x[i] += dx
+                        dist_dx = np.linalg.norm(x - x_i) / self.epsilon
+                        grad_potential += (
+                            (self.G * close_sample.mass / self.epsilon)
+                            * (self.phi(dist) - self.phi(dist_dx))
+                            / dx
+                        )
+                        x[i] -= dx
+            return grad_potential
+
+        def compute_far(self, cell: FMMCell) -> Vec3:
+            return cell.field_tensor[1:]
