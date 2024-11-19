@@ -122,7 +122,7 @@ class FMMSolver:
         self.epsilon = 4 * size / np.sqrt(len(samples))
         self.n_max = n_max
 
-        self.leaves_cells: List[FMMCell] = []
+        self.leaves_cells: List[OctTree[FMMCell]] = []
 
     def make_tree(self):
         self.tree.value = FMMCell(self.samples, np.zeros(3), self.size)
@@ -133,7 +133,7 @@ class FMMSolver:
             assert cell is not None
 
             if len(cell.samples) <= self.n_max:
-                self.leaves_cells.append(cell)
+                self.leaves_cells.append(tree)
                 continue
 
             new_size = cell.size / 2
