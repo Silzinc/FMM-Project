@@ -51,13 +51,19 @@ class FMMCell:
         self.mass: float = 0
         self.barycenter: Vec3 = np.zeros(3)
         self.extension: float = 0
-        self.neighbors: List[int] = []
+        self.neighbors: List[FMMCell] = []
 
     def contains_sample(self, sample: MassSample):
         return np.abs(self.centroid - sample.pos).max() < self.size / 2
 
     def __str__(self):
-        return f"Cell(centroid: {self.centroid}, size: {self.size}, mass: {self.mass}, nparticles: {len(self.samples)})"
+        return (
+            f"Cell(centroid: {self.centroid}, "
+            f"size: {self.size}, "
+            f"mass: {self.mass:.2f}, "
+            f"field_tensor: {self.field_tensor}, "
+            f"extent: {self.extension:.2f})"
+        )
 
 
 T = TypeVar("T")
@@ -94,31 +100,33 @@ class OctTree(Generic[T]):
 class FMMSolver:
     """
     Fields:
-       size: size of the simulation cube (float)
-       phi: function representing the potential of one "particle" (Callable[[float], float])
-       dt: timestep (float)
-       tree: octree of the volume cells (OctTree)
-       samples: list of mass samples (MassSample)
-       epsilon: particle smoothing size (float)
-       n_max: max number of particles per leaf cell (int)
+        size: size of the simulation cube (float)
+        gradphi: function of r/epsilon representing the gradient
+            potential of one "particle" (Callable[[float], float])
+        one "particle" per mass unit (Callable[[float], float])
+        dt: timestep (float)
+        tree: octree of the volume cells (OctTree)
+        samples: list of mass samples (MassSample)
+        epsilon: particle smoothing size (float)
+        n_max: max number of particles per leaf cell (int)
     """
 
     def __init__(
         self,
         size: float,
-        phi: Callable[[float], float],
+        grad_phi: Callable[[float], float],
         dt: float,
         samples: List[MassSample],
         n_max: int,
     ):
         self.size = size
-        self.phi = phi
+        self.grad_phi = grad_phi
         self.dt = dt
         self.tree: OctTree[FMMCell] = OctTree()
         self.samples = samples
         self.epsilon = 4 * size / np.sqrt(len(samples))
         self.n_max = n_max
-        self.G = 1
+        self.G = 1e-2
 
         self.leaves_cells: List[OctTree[FMMCell]] = []
 
@@ -163,18 +171,20 @@ class FMMSolver:
         index = 0
         while index < len(cell_stack):
             tree = cell_stack[index]
+            index += 1
             cell = tree.value
             assert cell is not None
             if cell.mass != 0:
                 # In this case, the calculation has already been done
-                index += 1
                 continue
 
             assert np.linalg.norm(cell.barycenter) == 0
             assert cell.extension == 0
 
             if tree.children is None:
-                # Then the cell is a leaf
+                if len(cell.samples) == 0:
+                    continue
+                # Then the cell is a non empty leaf
                 for sample in cell.samples:
                     cell.mass += sample.mass
                     cell.barycenter += sample.mass * sample.pos
@@ -185,7 +195,7 @@ class FMMSolver:
                     )
 
             else:
-                # Then the cell is a parent
+                # Then the cell is a non empty parent
                 for child in tree.children:
                     child_cell = child.value
                     assert child_cell is not None
@@ -205,12 +215,12 @@ class FMMSolver:
             if tree.parent is not None:
                 cell_stack.append(tree.parent)
 
-            index += 1
-
     def compute_field_tensors(self) -> None:
+        # Deque containing pairs of cells to make interact with each other
         cell_pairs: Deque[Tuple[OctTree[FMMCell], OctTree[FMMCell]]] = deque()
         cell_pairs.append((self.tree, self.tree))
-        while not len(cell_pairs) == 0:
+
+        while len(cell_pairs) != 0:
             (tree1, tree2) = cell_pairs.popleft()
             cell1 = tree1.value
             cell2 = tree2.value
@@ -221,10 +231,15 @@ class FMMSolver:
             if cell1.extension + cell2.extension >= np.linalg.norm(
                 cell1.barycenter - cell2.barycenter
             ):
-                if cell1.extension >= cell2.extension:
+                if max(len(cell1.samples), len(cell2.samples)) <= self.n_max:
+                    cell1.neighbors.append(cell2)
+                    cell2.neighbors.append(cell1)
+
+                elif len(cell1.samples) >= len(cell2.samples):
                     assert tree1.children is not None
                     for child in tree1.children:
                         cell_pairs.append((child, tree2))
+
                 else:
                     assert tree2.children is not None
                     for child in tree2.children:
@@ -234,43 +249,71 @@ class FMMSolver:
                 # Otherwise, compute the field tensor
                 # Under a order-1 approximation of the potential, the contribution of cell1 to cell2's tensor is
                 # [m1 * phi(z1 - z2), m1 * grad(phi)(z1 - z2)]
-                pass
+                # Actually, phi is not necessary and therefore not computed.
 
-        def update(self):
-            for tree in self.leaves_cells:
-                cell = tree.value
-                assert cell is not None
-                for sample in cell.samples:
-                    grad_potential = np.zeros(3)
-                    grad_potential += self.compute_close(cell, sample)
-                    grad_potential += self.compute_far(cell)
-                    acc = grad_potential
-                    pos = sample.pos.copy()
-                    sample.pos = 2 * sample.pos - sample.prev_pos + acc * self.dt**2
-                    sample.prev_pos = pos
+                diff = cell2.barycenter - cell1.barycenter
 
-        def compute_close(self, cell: FMMCell, sample: MassSample) -> Vec3:
-            grad_potential = np.zeros(3)
-            dx = self.epsilon / 10.0
-            x = sample.pos
-            for i in cell.neighbors:
-                neighbor_cell = self.leaves_cells[i].value
-                assert neighbor_cell is not None
-                for close_sample in neighbor_cell.samples:
-                    x_i = close_sample.pos
-                    if np.linalg.norm(x - x_i) == 0:
-                        break
-                    dist = np.linalg.norm(x - x_i) / self.epsilon
-                    for i in range(3):
-                        x[i] += dx
-                        dist_dx = np.linalg.norm(x - x_i) / self.epsilon
-                        grad_potential += (
-                            (self.G * close_sample.mass / self.epsilon)
-                            * (self.phi(dist) - self.phi(dist_dx))
-                            / dx
-                        )
-                        x[i] -= dx
-            return grad_potential
+                field_intensity = (
+                    -self.G
+                    * diff
+                    / (np.linalg.norm(diff) ** 3)
+                    * self.grad_phi(np.linalg.norm(diff) / self.epsilon)
+                )
+                cell2.field_tensor[1:] += cell1.mass * field_intensity
+                cell1.field_tensor[1:] += -cell2.mass * field_intensity
 
-        def compute_far(self, cell: FMMCell) -> Vec3:
-            return cell.field_tensor[1:]
+                # cell1.field_tensor[0] += cell2.mass * phi_val
+
+        # Last downward pass to propagate the field tensors to the leaves
+        cell_stack = [self.tree]
+        while len(cell_stack) != 0:
+            tree = cell_stack.pop()
+            cell = tree.value
+            assert cell is not None
+            if tree.children is None:
+                continue
+            for child in tree.children:
+                child_cell = child.value
+                assert child_cell is not None
+                barycenter_diff = child_cell.barycenter - cell.barycenter
+                # child_cell.field_tensor[0] += (
+                #     cell.field_tensor[1:] @ barycenter_diff + cell.field_tensor[0]
+                # )
+                child_cell.field_tensor[1:] += cell.field_tensor[1:]
+                cell_stack.append(child)
+
+    def update(self):
+        new_poss = np.zeros((len(self.samples), 3))
+        index = 0
+        for tree in self.leaves_cells:
+            cell = tree.value
+            assert cell is not None
+            for sample in cell.samples:
+                grad_potential = np.zeros(3)
+                grad_potential += self.compute_close(cell, sample)
+                grad_potential += self.compute_far(cell)
+                acc = grad_potential
+                new_poss[index] = 2 * sample.pos - sample.prev_pos + acc * self.dt**2
+                index += 1
+        index = 0
+        for tree in self.leaves_cells:
+            cell = tree.value
+            assert cell is not None
+            for sample in cell.samples:
+                sample.prev_pos = sample.pos
+                sample.pos = new_poss[index]
+                index += 1
+
+                    -self.G
+                    * diff
+
+    def compute_far(self, cell: FMMCell) -> Vec3:
+        return cell.field_tensor[1:]
+
+    # Utilities
+
+    def average_pos(self) -> Vec3:
+        avg: Vec3 = np.zeros(3)
+        for s in self.samples:
+            avg += s.pos
+        return avg / len(self.samples)
