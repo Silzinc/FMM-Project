@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 from collections import deque
 from typing import Callable, Deque, Generic, List, Optional, Tuple, TypeVar
 
 import numpy as np
 import numpy.random as rd
 import numpy.typing as npt
+
+np.set_printoptions(precision=3, suppress=True)
 
 mu = 1.0
 size = 10.0
@@ -304,8 +308,46 @@ class FMMSolver:
                 sample.pos = new_poss[index]
                 index += 1
 
+    def naive_update(self):
+        """
+        Updates the system with the basic O(n^2) algorithm.
+        Used for speed comparison with the enhanced algorithm.
+        """
+        new_poss = np.zeros((len(self.samples), 3))
+        for index, sample1 in enumerate(self.samples):
+            acc = np.zeros(3)
+            for sample2 in self.samples:
+                diff = sample1.pos - sample2.pos
+                if np.linalg.norm(diff) == 0:
+                    continue
+                acc += sample2.mass * (
                     -self.G
                     * diff
+                    / (np.linalg.norm(diff) ** 3)
+                    * self.grad_phi(np.linalg.norm(diff) / self.epsilon)
+                )
+            new_poss[index] = 2 * sample1.pos - sample1.prev_pos + acc * self.dt**2
+
+        for index, sample in enumerate(self.samples):
+            sample.prev_pos = sample.pos
+            sample.pos = new_poss[index]
+
+    def compute_close(self, cell: FMMCell, sample: MassSample) -> Vec3:
+        total_field = np.zeros(3)
+        for neighbor_cell in cell.neighbors:
+            for close_sample in neighbor_cell.samples:
+                diff = sample.pos - close_sample.pos
+                if np.linalg.norm(diff) == 0:
+                    continue
+
+                field_intensity = (
+                    -self.G
+                    * diff
+                    / (np.linalg.norm(diff) ** 3)
+                    * self.grad_phi(np.linalg.norm(diff) / self.epsilon)
+                )
+                total_field += close_sample.mass * field_intensity
+        return total_field
 
     def compute_far(self, cell: FMMCell) -> Vec3:
         return cell.field_tensor[1:]
@@ -317,3 +359,16 @@ class FMMSolver:
         for s in self.samples:
             avg += s.pos
         return avg / len(self.samples)
+
+    def std_pos(self) -> Vec3:
+        avg_sq: Vec3 = np.zeros(3)
+        avg = self.average_pos()
+        for s in self.samples:
+            avg_sq += (s.pos - avg) ** 2
+        return np.sqrt(avg_sq / len(self.samples))
+
+    def pos_divergence(self, lhs: FMMSolver) -> float:
+        div = 0
+        for sample1, sample2 in zip(self.samples, lhs.samples):
+            div += ((sample1.pos - sample2.pos) ** 2).sum()
+        return np.sqrt(div / len(self.samples))
