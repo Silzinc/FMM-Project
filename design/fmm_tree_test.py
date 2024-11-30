@@ -1,3 +1,4 @@
+from copy import deepcopy
 from time import time
 
 from fmm_solver_design import FMMSolver, MassSample, size
@@ -12,14 +13,12 @@ def grad_phi(xi: float) -> float:
 
 
 samples = gen_random_samples(100)
-solver = FMMSolver(size, grad_phi, 0.1, samples.copy(), 5)
-naive_solver = FMMSolver(size, grad_phi, 0.1, samples.copy(), 5)
+solver = FMMSolver(size, grad_phi, 0.1, deepcopy(samples), 5)
+naive_solver = FMMSolver(size, grad_phi, 0.1, deepcopy(samples), 5)
 
 solver.make_tree()
-
 solver.compute_multipole_extension_barycenter()
-
-solver.compute_field_tensors()
+solver.compute_field_tensors_neighbors()
 
 ups = 100
 print(
@@ -31,7 +30,7 @@ print()
 
 print("Use fmm solver...")
 t = time()
-for _ in range(ups):
+for k in range(ups):
     solver.update()
 print(f"Took {time() - t:.3f} seconds.")
 print(f"Average position is now {solver.average_pos()}")
@@ -48,5 +47,5 @@ print(f"Standard deviation is now {naive_solver.std_pos()}")
 print()
 
 print(
-    f"Standard divergence between the two predictions: {solver.pos_divergence(naive_solver)}"
+    f"Square divergence between the two predictions: {solver.pos_divergence(naive_solver)}"
 )

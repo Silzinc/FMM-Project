@@ -172,18 +172,17 @@ class FMMSolver:
 
     def compute_multipole_extension_barycenter(self) -> None:
         cell_stack = self.leaves_cells.copy()
+        visited = set()
         index = 0
         while index < len(cell_stack):
             tree = cell_stack[index]
             index += 1
             cell = tree.value
             assert cell is not None
-            if cell.mass != 0:
+            if cell in visited:
                 # In this case, the calculation has already been done
                 continue
-
-            assert np.linalg.norm(cell.barycenter) == 0
-            assert cell.extension == 0
+            visited.add(cell)
 
             if tree.children is None:
                 if len(cell.samples) == 0:
@@ -219,7 +218,20 @@ class FMMSolver:
             if tree.parent is not None:
                 cell_stack.append(tree.parent)
 
-    def compute_field_tensors(self) -> None:
+    def clear_field_tensors_neighbors(self) -> None:
+        def __clear(tree: OctTree[FMMCell]) -> None:
+            cell = tree.value
+            assert cell is not None
+            cell.field_tensor = np.zeros(4)
+            cell.neighbors = []
+            if tree.children is not None:
+                for child in tree.children:
+                    __clear(child)
+
+        __clear(self.tree)
+
+    def compute_field_tensors_neighbors(self) -> None:
+        self.clear_field_tensors_neighbors()
         # Deque containing pairs of cells to make interact with each other
         cell_pairs: Deque[Tuple[OctTree[FMMCell], OctTree[FMMCell]]] = deque()
         cell_pairs.append((self.tree, self.tree))
@@ -236,8 +248,10 @@ class FMMSolver:
                 cell1.barycenter - cell2.barycenter
             ):
                 if max(len(cell1.samples), len(cell2.samples)) <= self.n_max:
+                    # If the cells close and are leaves, add them to each other's neighbors
                     cell1.neighbors.append(cell2)
-                    cell2.neighbors.append(cell1)
+                    if cell1 is not cell2:
+                        cell2.neighbors.append(cell1)
 
                 elif len(cell1.samples) >= len(cell2.samples):
                     assert tree1.children is not None
@@ -279,7 +293,7 @@ class FMMSolver:
             for child in tree.children:
                 child_cell = child.value
                 assert child_cell is not None
-                barycenter_diff = child_cell.barycenter - cell.barycenter
+                # barycenter_diff = child_cell.barycenter - cell.barycenter
                 # child_cell.field_tensor[0] += (
                 #     cell.field_tensor[1:] @ barycenter_diff + cell.field_tensor[0]
                 # )
@@ -371,4 +385,4 @@ class FMMSolver:
         div = 0
         for sample1, sample2 in zip(self.samples, lhs.samples):
             div += ((sample1.pos - sample2.pos) ** 2).sum()
-        return np.sqrt(div / len(self.samples))
+        return div / len(self.samples)
