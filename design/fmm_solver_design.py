@@ -128,22 +128,25 @@ class FMMTree:
                                             self[l][ni][nj][nk]
                                         )
                         if l > 0:
+                            # Parent indices
                             pi, pj, pk = i // 2, j // 2, k // 2
-                            parent = self[l - 1][pi][pj][pk]
-                            for neighbor in parent.direct_neighbors:
-                                for ni in [2 * pi, 2 * pi + 1]:
-                                    for nj in [2 * pj, 2 * pj + 1]:
-                                        for nk in [2 * pk, 2 * pk + 1]:
-                                            near_child = self[l][ni][nj][nk]
-                                            if (
-                                                max(
-                                                    abs(ni - i),
-                                                    abs(nj - j),
-                                                    abs(nk - k),
-                                                )
-                                                > 1
-                                            ):
-                                                cell.interaction_list.append(near_child)
+                            for ni in range(max(0, 2 * pi - 2), min(width, 2 * pi + 4)):
+                                for nj in range(
+                                    max(0, 2 * pj - 2), min(width, 2 * pj + 4)
+                                ):
+                                    for nk in range(
+                                        max(0, 2 * pk - 2), min(width, 2 * pk + 4)
+                                    ):
+                                        near_child = self[l][ni][nj][nk]
+                                        if (
+                                            max(
+                                                abs(ni - i),
+                                                abs(nj - j),
+                                                abs(nk - k),
+                                            )
+                                            > 1
+                                        ):
+                                            cell.interaction_list.append(near_child)
 
     def depth(self):
         return len(self.data)
@@ -250,7 +253,7 @@ class FMMTree:
                                     child = self[l + 1][ci][cj][ck]
                                     cell.mass += child.mass
                                     cell.barycenter += child.mass * child.barycenter
-                        if cell.samples is not None and len(cell.samples) != 0:
+                        if cell.mass != 0:
                             cell.barycenter /= cell.mass
 
         # Compute the field tensors. First, compute the contributions of the interaction lists.
@@ -259,6 +262,8 @@ class FMMTree:
                 for j in range(2**l):
                     for k in range(2**l):
                         cell = self[l][i][j][k]
+                        if cell.samples is not None and len(cell.samples) == 0:
+                            continue
                         cell.field_tensor = np.zeros(4)
                         for neighbor in cell.interaction_list:
                             diff = cell.barycenter - neighbor.barycenter
@@ -281,6 +286,8 @@ class FMMSolver:
     """
     Fields:
         size: size of the simulation cube (float)
+        phi: function of r/epsilon representing the potential
+            of one "particle" (Callable[[float], float])
         grad_phi: function of r/epsilon representing the gradient
             potential of one "particle" (Callable[[float], float])
         one "particle" per mass unit (Callable[[float], float])
@@ -294,18 +301,36 @@ class FMMSolver:
     def __init__(
         self,
         size: float,
+        phi: Callable[[float], float],
         grad_phi: Callable[[float], float],
         dt: float,
         samples: List[MassSample],
         depth: int,
     ):
         self.size = size
+        self.phi = phi
         self.grad_phi = grad_phi
         self.dt = dt
         self.tree = FMMTree(depth, size)
         self.samples = samples
         self.epsilon = 4 * size / np.sqrt(len(samples))
-        self.G = 1e-2
+        self.G = 1e-1
+
+    def potential(self, diff: Vec3) -> float:
+        """
+        Helper function to compute the potential between two points, given their position difference.
+
+        Args:
+            diff: position difference between the two points (Vec3)
+
+        Returns:
+            potential (float)
+        """
+        return (
+            -self.G
+            / np.linalg.norm(diff)
+            * self.phi(np.linalg.norm(diff) / self.epsilon)
+        )
 
     def field_intensity(self, diff: Vec3) -> Vec3:
         """
@@ -346,6 +371,8 @@ class FMMSolver:
                 for k in range(2 ** (depth - 1)):
                     cell = self.tree[-1][i][j][k]
                     assert cell.samples is not None
+                    if len(cell.samples) == 0:
+                        continue
                     for sample in cell.samples:
                         grad_potential = np.zeros(3)
                         grad_potential += self.compute_close(cell, sample)
@@ -362,6 +389,8 @@ class FMMSolver:
                 for k in range(2 ** (depth - 1)):
                     cell = self.tree[-1][i][j][k]
                     assert cell.samples is not None
+                    if len(cell.samples) == 0:
+                        continue
                     for sample in cell.samples:
                         sample.prev_pos = sample.pos
                         sample.pos = new_poss[index]
@@ -371,6 +400,8 @@ class FMMSolver:
         total_field = np.zeros(3)
         for neighbor_cell in cell.direct_neighbors:
             assert neighbor_cell.samples is not None
+            if len(neighbor_cell.samples) == 0:
+                continue
             for close_sample in neighbor_cell.samples:
                 diff = sample.pos - close_sample.pos
                 if np.linalg.norm(diff) == 0:
@@ -394,12 +425,8 @@ class FMMSolver:
                 diff = sample1.pos - sample2.pos
                 if np.linalg.norm(diff) == 0:
                     continue
-                acc += sample2.mass * (
-                    -self.G
-                    * diff
-                    / (np.linalg.norm(diff) ** 3)
-                    * self.grad_phi(np.linalg.norm(diff) / self.epsilon)
-                )
+                field_intensity = self.field_intensity(diff)
+                acc += sample2.mass * field_intensity
             new_poss[index] = 2 * sample1.pos - sample1.prev_pos + acc * self.dt**2
 
         for index, sample in enumerate(self.samples):
@@ -426,3 +453,16 @@ class FMMSolver:
         for sample1, sample2 in zip(self.samples, lhs.samples):
             div += ((sample1.pos - sample2.pos) ** 2).sum()
         return div / len(self.samples)
+
+    def total_energy(self) -> float:
+        # Kinetic energy
+        ke = sum(
+            s.mass * np.linalg.norm(s.speed(self.dt)) ** 2 / 2 for s in self.samples
+        )
+        # Potential energy
+        pe = 0
+        for s1 in self.samples:
+            for s2 in self.samples:
+                if s1 is not s2:
+                    pe += self.potential(s1.pos - s2.pos)
+        return ke + pe
