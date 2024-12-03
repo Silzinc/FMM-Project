@@ -11,10 +11,6 @@ size = 10.0
 mu = 1.0
 
 
-def gen_random_samples(n: int):
-    return [fmm.MassSample((np.random.rand(3) - 0.5) * size, mass=mu) for _ in range(n)]
-
-
 def phi(xi: float) -> float:
     return xi / (1 + xi * xi) ** (1 / 2)
 
@@ -23,16 +19,20 @@ def grad_phi(xi: float) -> float:
     return -(xi**3) / (1 + xi * xi) ** (3 / 2)
 
 
-def test_fmm():
-    nsamples = 40
-    updates = 50
+def test_random_samples_fmm():
+    def gen_random_samples(n: int):
+        return [
+            fmm.MassSample((np.random.rand(3) - 0.5) * size, mass=mu) for _ in range(n)
+        ]
+
+    nsamples = 140
+    updates = 150
+    dt = 0.01
 
     samples = gen_random_samples(nsamples)
-    solver = fmm.FMMSolver(size, phi, grad_phi, 0.1, deepcopy(samples), 3)
-    naive_solver = fmm.NaiveSolver(
-        phi, grad_phi, 0.1, solver.epsilon, deepcopy(samples)
-    )
-    solver0 = fmm.NaiveSolver(phi, grad_phi, 0.1, solver.epsilon, deepcopy(samples))
+    solver = fmm.FMMSolver(size, phi, grad_phi, dt, deepcopy(samples), 3)
+    naive_solver = fmm.NaiveSolver(phi, grad_phi, dt, solver.epsilon, deepcopy(samples))
+    solver0 = fmm.NaiveSolver(phi, grad_phi, dt, solver.epsilon, deepcopy(samples))
 
     print(
         f"Parameters: {updates} updates with {len(samples)} samples.\n"
