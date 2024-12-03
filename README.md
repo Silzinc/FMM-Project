@@ -1,7 +1,8 @@
 # Numerical physics class project
+
 Many body simulation (FMM method)
 
-***
+---
 
 ## Project organisation
 
@@ -12,17 +13,25 @@ Many body simulation (FMM method)
 
 ## Handling jupyter notebooks
 
-Notebooks may be pushed in the `test` and `design` folders **without the output** which can be very heavy. 
+Notebooks may be pushed in the `test` and `design` folders **without the output** which can be very heavy.
 
-## Using `uv` 
+## Using `uv`
 
 ### Handle python packages
 
 - Install a library: `uv add <library>`
 - Remove a library: `uv remove <library>`
 - Install libraries from `pyproject.toml`: `uv sync`
- 
+
 ### Run python scripts
 
 - In an editor supporting it (VSCode, PyCharm, etc...), activate the virtual environement of the project after installing it with `uv sync`.
 - Run `uv run <script>`, or just `python <script>` with the environment of the project activated.
+
+### Run tests
+
+After running `uv sync`, you can run the tests in the `test` directory with the following command:
+
+```bash
+uv run pytest test/*.py -s
+```
