@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, List
+from typing import Callable, Generator, List
 
 import numpy as np
 
@@ -224,6 +224,18 @@ class FMMSolver(GenericSolver):
 
     def compute_far(self, cell: FMMCell) -> Vec3:
         return cell.field_tensor
+
+    def iter_cells(self, floor: int) -> Generator[FMMCell]:
+        if floor >= self.tree.depth():
+            raise ValueError(
+                f"Asked floor {floor} in a tree of depth {self.tree.depth()}."
+                "Floor must be less than the depth of the tree."
+            )
+        floor %= self.tree.depth()
+        for i in range(2**floor):
+            for j in range(2**floor):
+                for k in range(2**floor):
+                    yield self.tree[floor][i][j][k]
 
 
 class NaiveSolver(GenericSolver):
