@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections import deque
-from typing import Callable, Deque, Generic, List, Optional, Tuple, TypeVar
+from typing import Callable, List
 
 import numpy as np
 import numpy.random as rd
