@@ -1,8 +1,5 @@
 import vpython as vp
-from copy import deepcopy
-
-import numpy as np
-import src as fmm
+import fmm_solver_design as solv
 
 vp.scene.width = vp.scene.height = 600
 vp.scene.background = vp.color.black
@@ -23,7 +20,7 @@ def Runbutton(b):
         run = True
         b.text = "Pause"
 
-def cell_to_faces(cell: fmm.FMMCell):
+def cell_to_faces(cell: solv.FMMCell):
     center = vp.vec(*(cell.centroid))
     L = cell.size * 0.9
     c = vp.box(pos=center, length=L, height=L, width=L, opacity=0.1, shininess=0, color=vp.color.cyan)
@@ -38,34 +35,31 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate.""")
 
 nb_images = 100
 p = []
-size = 10.0
-mu = 1.0
-
-def phi(xi: float) -> float:
-    return xi / (1 + xi * xi) ** (1 / 2)
-
-def grad_phi(xi: float) -> float:
-    return -(xi**3) / (1 + xi * xi) ** (3 / 2)
 
 def gen_random_samples(n: int):
-    return [fmm.MassSample((np.random.rand(3) - 0.5) * size, mass=mu) for _ in range(n)]
+    return [solv.MassSample() for _ in range(n)]
 
 samples = gen_random_samples(N)
-solver = fmm.FMMSolver(size, phi, grad_phi, 0.1, deepcopy(samples), 3)
+solver = solv.FMMSolver(10, lambda x: x, 1., samples, 10)
+
+solver.make_tree()
 
 # Générer toutes les positions des points pour les frames
 for step in range(nb_images):
     print("Calculating frame " + str(step))
     q = []
-    for sample in solver.samples:
-        next = sample
-        q.append(vp.vec(next.pos[0], next.pos[1], next.pos[2]))
+    for tree in solver.leaves_cells:
+        cell = tree.value
+        assert cell is not None
+        for sample in cell.samples:
+            next = sample
+            q.append(vp.vec(next.pos[0], next.pos[1], next.pos[2]))
     p.append(q)
     solver.update()
 
 # Créer les faces des cellules
-
-for cell in solver.iter_cells(-1):
+for j in range(len(solver.leaves_cells)):
+    cell = solver.leaves_cells[j].value
     assert cell is not None
     cell_to_faces(cell)
 
