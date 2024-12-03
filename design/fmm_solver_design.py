@@ -46,7 +46,9 @@ class FMMCell:
       neighbors: list of neighboring cells (list of FMMCell)
     """
 
-    def __init__(self, samples: List[MassSample], centroid: Vec3, size: float):
+    def __init__(
+        self, centroid: Vec3, size: float, samples: List[MassSample] | None = None
+    ):
         self.samples = samples
         self.centroid: Vec3 = centroid
         self.size = size
@@ -54,8 +56,8 @@ class FMMCell:
         # NOTE: The following will be set when the tree is constructed
         self.mass: float = 0
         self.barycenter: Vec3 = np.zeros(3)
-        self.extension: float = 0
-        self.neighbors: List[FMMCell] = []
+        self.interaction_list: List[FMMCell] = []
+        self.direct_neighbors: List[FMMCell] = []
 
     def contains_sample(self, sample: MassSample):
         return np.abs(self.centroid - sample.pos).max() < self.size / 2
@@ -65,47 +67,221 @@ class FMMCell:
             f"Cell(centroid: {self.centroid}, "
             f"size: {self.size}, "
             f"mass: {self.mass:.2f}, "
-            f"field_tensor: {self.field_tensor}, "
-            f"extent: {self.extension:.2f})"
+            f"field_tensor: {self.field_tensor})"
         )
 
 
-T = TypeVar("T")
+class FMMTree:
+    def __init__(self, depth: int, size: float) -> None:
+        """
+        Initializes the FMMTree with the given depth and size.
+        Constructs the tree structure and initializes the direct_neighbors and interaction_list fields.
+        These are the only fields that are initialized, as they do not depend on the samples but only on the structure.
 
+        Args:
+            depth: depth of the tree
+            size: size of the simulation cube (the cells' centroids are placed so that the cube is centered at the origin)
 
-class OctTree(Generic[T]):
-    """
-    Fields:
-        children: children of the node (list of 8 OctTree | None)
-        value: value of the node
-        parent: parent of the node (OctTree | None)
-    """
+        Time complexity:
+            O(8^depth) given the depth of the tree, which becomes O(len(samples)) if depth = O(log8(len(samples)).
+        """
+        # Initialize the data
+        self.data = [
+            [
+                [
+                    [
+                        FMMCell(
+                            np.array(
+                                [
+                                    size * ((i + 0.5) / 2**l - 0.5),
+                                    size * ((j + 0.5) / 2**l - 0.5),
+                                    size * ((k + 0.5) / 2**l - 0.5),
+                                ]
+                            ),
+                            size / 2**l,
+                        )
+                        for k in range(2**l)
+                    ]
+                    for j in range(2**l)
+                ]
+                for i in range(2**l)
+            ]
+            for l in range(depth)
+        ]
 
-    def __init__(self):
-        self.value: Optional[T] = None
-        self.children: Optional[List[OctTree[T]]] = None
-        self.parent: Optional[OctTree[T]] = None
+        # Construct direct_neighbors and interaction_list
+        for l in range(depth):
+            width = 2**l
+            for i in range(width):
+                for j in range(width):
+                    for k in range(width):
+                        cell = self[l][i][j][k]
+                        for ni in [i - 1, i, i + 1]:
+                            for nj in [j - 1, j, j + 1]:
+                                for nk in [k - 1, k, k + 1]:
+                                    if (
+                                        0 <= ni < width
+                                        and 0 <= nj < width
+                                        and 0 <= nk < width
+                                    ):
+                                        cell.direct_neighbors.append(
+                                            self[l][ni][nj][nk]
+                                        )
+                        if l > 0:
+                            pi, pj, pk = i // 2, j // 2, k // 2
+                            parent = self[l - 1][pi][pj][pk]
+                            for neighbor in parent.direct_neighbors:
+                                for ni in [2 * pi, 2 * pi + 1]:
+                                    for nj in [2 * pj, 2 * pj + 1]:
+                                        for nk in [2 * pk, 2 * pk + 1]:
+                                            near_child = self[l][ni][nj][nk]
+                                            if (
+                                                max(
+                                                    abs(ni - i),
+                                                    abs(nj - j),
+                                                    abs(nk - k),
+                                                )
+                                                > 1
+                                            ):
+                                                cell.interaction_list.append(near_child)
 
-    def make_children(self) -> None:
-        self.children = [OctTree[T]() for _ in range(8)]
-        for child in self.children:
-            child.parent = self
+    def depth(self):
+        return len(self.data)
 
-    def pretty_print(self, indent: int = 0) -> None:
-        print("  " * indent + "OctTree{")
-        if self.children is None:
-            print("  " * (indent + 2) + str(self.value))
-        else:
-            for child in self.children:
-                child.pretty_print(indent + 1)
-        print("  " * indent + "}")
+    def tree_size(self) -> int:
+        # There are 2^(3k) cells in the kth grid of the list
+        # The total is sum(l = 0 -> depth - 1) of 8^k, i.e. (8^depth - 1) / 7
+        return (8 ** self.depth() - 1) // 7
+
+    def space_size(self) -> float:
+        return self[0][0][0][0].size
+
+    def __getitem__(self, i: int) -> List[List[List[FMMCell]]]:
+        return self.data[i]
+
+    def __setitem__(self, i: int, value: List[List[List[FMMCell]]]):
+        self.data[i] = value
+
+    def pretty_print(self) -> None:
+        def aux(i: int, j: int, k: int, l: int) -> None:
+            if l == self.depth():
+                print("  " * l + str(self[i][j][k]))
+            else:
+                print(" " * l + "FMMTree{")
+                i2 = 2 * i
+                j2 = 2 * j
+                k2 = 2 * k
+                for incr1 in [0, 1]:
+                    for incr2 in [0, 1]:
+                        for incr3 in [0, 1]:
+                            aux(i2 + incr1, j2 + incr2, k2 + incr3, l + 1)
+                print(" " * l + "}")
+
+        aux(0, 0, 0, 0)
+
+    def get_leaf_from_pos(self, pos: Vec3) -> FMMCell:
+        l = self.depth() - 1
+        size = self.space_size()
+        i = int((pos[0] / size + 0.5) * 2**l)
+        j = int((pos[1] / size + 0.5) * 2**l)
+        k = int((pos[2] / size + 0.5) * 2**l)
+        return self[l][min(len(self[l]) - 1, max(0, i))][
+            min(len(self[l]) - 1, max(0, j))
+        ][min(len(self[l]) - 1, max(0, k))]
+
+    def update(self, samples: List[MassSample], field: Callable[[Vec3], Vec3]) -> None:
+        """
+        Updates the tree's content with the given samples and field function.
+        The structure itself does not change, but the mass, barycenter, field tensors
+        and distribution of samples in the leaves are updated.
+
+        Args:
+            samples: list of mass samples
+            field: function of the distance between two points representing the field between them per unit mass
+
+        Returns:
+            None
+
+        Time complexity:
+            O(8^depth) given the depth of the tree, which becomes O(len(samples)) if depth = O(log8(len(samples)).
+        """
+
+        # Clear the tree leaf cells
+        for i in range(2 ** (self.depth() - 1)):
+            for j in range(2 ** (self.depth() - 1)):
+                for k in range(2 ** (self.depth() - 1)):
+                    leaf = self[-1][i][j][k]
+                    if leaf.samples is not None:
+                        del leaf.samples[:]
+                    else:
+                        leaf.samples = []
+                    leaf.mass = 0
+                    leaf.barycenter = np.zeros(3)
+
+        # Populate the leaves and compute their masses and barycenter
+        for sample in samples:
+            leaf = self.get_leaf_from_pos(sample.pos)
+            assert leaf.samples is not None
+            leaf.samples.append(sample)
+            leaf.mass += sample.mass
+            leaf.barycenter += sample.mass * sample.pos
+
+        for i in range(2 ** (self.depth() - 1)):
+            for j in range(2 ** (self.depth() - 1)):
+                for k in range(2 ** (self.depth() - 1)):
+                    cell = self[self.depth() - 1][i][j][k]
+                    if cell.samples is not None and len(cell.samples) != 0:
+                        cell.barycenter /= cell.mass
+
+        # Propagate mass and barycenter upward.
+        # Unintuitively with the 7 nested for loops, this is done
+        # in O(len(samples)) if depth is chosen to have as many
+        # leaves as there are samples.
+        for l in range(self.depth() - 2, -1, -1):
+            for i in range(2**l):
+                for j in range(2**l):
+                    for k in range(2**l):
+                        cell = self[l][i][j][k]
+                        cell.mass = 0
+                        cell.barycenter = np.zeros(3)
+                        for ci in [2 * i, 2 * i + 1]:
+                            for cj in [2 * j, 2 * j + 1]:
+                                for ck in [2 * k, 2 * k + 1]:
+                                    child = self[l + 1][ci][cj][ck]
+                                    cell.mass += child.mass
+                                    cell.barycenter += child.mass * child.barycenter
+                        if cell.samples is not None and len(cell.samples) != 0:
+                            cell.barycenter /= cell.mass
+
+        # Compute the field tensors. First, compute the contributions of the interaction lists.
+        for l in range(self.depth()):
+            for i in range(2**l):
+                for j in range(2**l):
+                    for k in range(2**l):
+                        cell = self[l][i][j][k]
+                        cell.field_tensor = np.zeros(4)
+                        for neighbor in cell.interaction_list:
+                            diff = cell.barycenter - neighbor.barycenter
+                            field_intensity = field(diff)
+                            cell.field_tensor[1:] += neighbor.mass * field_intensity
+        # Then, propagate the field tensors downward.
+        for l in range(self.depth() - 1):
+            for i in range(2**l):
+                for j in range(2**l):
+                    for k in range(2**l):
+                        cell = self[l][i][j][k]
+                        for ci in [2 * i, 2 * i + 1]:
+                            for cj in [2 * j, 2 * j + 1]:
+                                for ck in [2 * k, 2 * k + 1]:
+                                    child = self[l + 1][ci][cj][ck]
+                                    child.field_tensor[1:] += cell.field_tensor[1:]
 
 
 class FMMSolver:
     """
     Fields:
         size: size of the simulation cube (float)
-        gradphi: function of r/epsilon representing the gradient
+        grad_phi: function of r/epsilon representing the gradient
             potential of one "particle" (Callable[[float], float])
         one "particle" per mass unit (Callable[[float], float])
         dt: timestep (float)
@@ -121,210 +297,94 @@ class FMMSolver:
         grad_phi: Callable[[float], float],
         dt: float,
         samples: List[MassSample],
-        n_max: int,
+        depth: int,
     ):
         self.size = size
         self.grad_phi = grad_phi
         self.dt = dt
-        self.tree: OctTree[FMMCell] = OctTree()
+        self.tree = FMMTree(depth, size)
         self.samples = samples
         self.epsilon = 4 * size / np.sqrt(len(samples))
-        self.n_max = n_max
         self.G = 1e-2
 
-        self.leaves_cells: List[OctTree[FMMCell]] = []
+    def field_intensity(self, diff: Vec3) -> Vec3:
+        """
+        Helper function to compute the field intensity from one point to another, given their position difference.
 
-    def make_tree(self) -> None:
-        self.tree.value = FMMCell(self.samples, np.zeros(3), self.size)
-        tree_stack = [self.tree]
-        while len(tree_stack) != 0:
-            tree = tree_stack.pop()
-            cell = tree.value
-            assert cell is not None
+        Args:
+            diff: position difference between the two points (Vec3)
 
-            if len(cell.samples) <= self.n_max:
-                self.leaves_cells.append(tree)
-                continue
-
-            new_size = cell.size / 2
-
-            new_cells: List[FMMCell] = []
-            for i1 in [-1, 1]:
-                for i2 in [-1, 1]:
-                    for i3 in [-1, 1]:
-                        new_cell = FMMCell(
-                            [],
-                            cell.centroid + np.array([i1, i2, i3]) * new_size / 2,
-                            new_size,
-                        )
-                        new_cells.append(new_cell)
-
-            for sample in cell.samples:
-                for new_cell in new_cells:
-                    if new_cell.contains_sample(sample):
-                        new_cell.samples.append(sample)
-
-            tree.make_children()
-            assert tree.children is not None
-            for child, cell in zip(tree.children, new_cells):
-                child.value = cell
-                tree_stack.append(child)
-
-    def compute_multipole_extension_barycenter(self) -> None:
-        cell_stack = self.leaves_cells.copy()
-        visited = set()
-        index = 0
-        while index < len(cell_stack):
-            tree = cell_stack[index]
-            index += 1
-            cell = tree.value
-            assert cell is not None
-            if cell in visited:
-                # In this case, the calculation has already been done
-                continue
-            visited.add(cell)
-
-            if tree.children is None:
-                if len(cell.samples) == 0:
-                    continue
-                # Then the cell is a non empty leaf
-                for sample in cell.samples:
-                    cell.mass += sample.mass
-                    cell.barycenter += sample.mass * sample.pos
-                cell.barycenter /= cell.mass
-                for sample in cell.samples:
-                    cell.extension = max(
-                        cell.extension, np.linalg.norm(sample.pos - cell.barycenter)
-                    )
-
-            else:
-                # Then the cell is a non empty parent
-                for child in tree.children:
-                    child_cell = child.value
-                    assert child_cell is not None
-                    cell.mass += child_cell.mass
-                    cell.barycenter += child_cell.mass * child_cell.barycenter
-                cell.barycenter /= cell.mass
-                for child in tree.children:
-                    child_cell = child.value
-                    assert child_cell is not None
-                    cell.extension = max(
-                        cell.extension,
-                        child_cell.extension
-                        + np.linalg.norm(child_cell.barycenter - cell.barycenter),
-                    )
-
-            # Add parent to the working stack if any
-            if tree.parent is not None:
-                cell_stack.append(tree.parent)
-
-    def clear_field_tensors_neighbors(self) -> None:
-        def __clear(tree: OctTree[FMMCell]) -> None:
-            cell = tree.value
-            assert cell is not None
-            cell.field_tensor = np.zeros(4)
-            cell.neighbors = []
-            if tree.children is not None:
-                for child in tree.children:
-                    __clear(child)
-
-        __clear(self.tree)
-
-    def compute_field_tensors_neighbors(self) -> None:
-        self.clear_field_tensors_neighbors()
-        # Deque containing pairs of cells to make interact with each other
-        cell_pairs: Deque[Tuple[OctTree[FMMCell], OctTree[FMMCell]]] = deque()
-        cell_pairs.append((self.tree, self.tree))
-
-        while len(cell_pairs) != 0:
-            (tree1, tree2) = cell_pairs.popleft()
-            cell1 = tree1.value
-            cell2 = tree2.value
-            assert cell1 is not None
-            assert cell2 is not None
-            # If the extents of the cells overlap, i.e. if w1 + w2 >= |z1 - z2|,
-            # subdivide the biggest cell into 8 children for this interaction
-            if cell1.extension + cell2.extension >= np.linalg.norm(
-                cell1.barycenter - cell2.barycenter
-            ):
-                if max(len(cell1.samples), len(cell2.samples)) <= self.n_max:
-                    # If the cells close and are leaves, add them to each other's neighbors
-                    cell1.neighbors.append(cell2)
-                    if cell1 is not cell2:
-                        cell2.neighbors.append(cell1)
-
-                elif len(cell1.samples) >= len(cell2.samples):
-                    assert tree1.children is not None
-                    for child in tree1.children:
-                        cell_pairs.append((child, tree2))
-
-                else:
-                    assert tree2.children is not None
-                    for child in tree2.children:
-                        cell_pairs.append((tree1, child))
-
-            else:
-                # Otherwise, compute the field tensor
-                # Under a order-1 approximation of the potential, the contribution of cell1 to cell2's tensor is
-                # [m1 * phi(z1 - z2), m1 * grad(phi)(z1 - z2)]
-                # Actually, phi is not necessary and therefore not computed.
-
-                diff = cell2.barycenter - cell1.barycenter
-
-                field_intensity = (
-                    -self.G
-                    * diff
-                    / (np.linalg.norm(diff) ** 3)
-                    * self.grad_phi(np.linalg.norm(diff) / self.epsilon)
-                )
-                cell2.field_tensor[1:] += cell1.mass * field_intensity
-                cell1.field_tensor[1:] += -cell2.mass * field_intensity
-
-                # cell1.field_tensor[0] += cell2.mass * phi_val
-
-        # Last downward pass to propagate the field tensors to the leaves
-        cell_stack = [self.tree]
-        while len(cell_stack) != 0:
-            tree = cell_stack.pop()
-            cell = tree.value
-            assert cell is not None
-            if tree.children is None:
-                continue
-            for child in tree.children:
-                child_cell = child.value
-                assert child_cell is not None
-                # barycenter_diff = child_cell.barycenter - cell.barycenter
-                # child_cell.field_tensor[0] += (
-                #     cell.field_tensor[1:] @ barycenter_diff + cell.field_tensor[0]
-                # )
-                child_cell.field_tensor[1:] += cell.field_tensor[1:]
-                cell_stack.append(child)
+        Returns:
+            field intensity (Vec3)
+        """
+        return (
+            -self.G
+            * diff
+            / (np.linalg.norm(diff) ** 3)
+            * self.grad_phi(np.linalg.norm(diff) / self.epsilon)
+        )
 
     def update(self):
+        """
+        Updates the system with the FMM algorithm, with time step dt.
+
+        The algorithm starts by updating the samples' distribution in the tree
+        structure, then updates the multipoles, barycenters andfield tensors on each cell,
+        and finally computes the field intensity at each point to update the positions
+        using the Verlet integration scheme.
+
+        Time complexity:
+            O(8^self.tree.depth() + len(self.samples)), which becomes O(len(self.samples))
+            if the depth of the tree is chosen to be O(log8(len(samples)).
+        """
+        self.tree.update(self.samples, self.field_intensity)
         new_poss = np.zeros((len(self.samples), 3))
         index = 0
-        for tree in self.leaves_cells:
-            cell = tree.value
-            assert cell is not None
-            for sample in cell.samples:
-                grad_potential = np.zeros(3)
-                grad_potential += self.compute_close(cell, sample)
-                grad_potential += self.compute_far(cell)
-                acc = grad_potential
-                new_poss[index] = 2 * sample.pos - sample.prev_pos + acc * self.dt**2
-                index += 1
+        depth = self.tree.depth()
+        for i in range(2 ** (depth - 1)):
+            for j in range(2 ** (depth - 1)):
+                for k in range(2 ** (depth - 1)):
+                    cell = self.tree[-1][i][j][k]
+                    assert cell.samples is not None
+                    for sample in cell.samples:
+                        grad_potential = np.zeros(3)
+                        grad_potential += self.compute_close(cell, sample)
+                        grad_potential += self.compute_far(cell)
+                        acc = grad_potential
+                        new_poss[index] = (
+                            2 * sample.pos - sample.prev_pos + acc * self.dt**2
+                        )
+                        index += 1
+
         index = 0
-        for tree in self.leaves_cells:
-            cell = tree.value
-            assert cell is not None
-            for sample in cell.samples:
-                sample.prev_pos = sample.pos
-                sample.pos = new_poss[index]
-                index += 1
+        for i in range(2 ** (depth - 1)):
+            for j in range(2 ** (depth - 1)):
+                for k in range(2 ** (depth - 1)):
+                    cell = self.tree[-1][i][j][k]
+                    assert cell.samples is not None
+                    for sample in cell.samples:
+                        sample.prev_pos = sample.pos
+                        sample.pos = new_poss[index]
+                        index += 1
+
+    def compute_close(self, cell: FMMCell, sample: MassSample) -> Vec3:
+        total_field = np.zeros(3)
+        for neighbor_cell in cell.direct_neighbors:
+            assert neighbor_cell.samples is not None
+            for close_sample in neighbor_cell.samples:
+                diff = sample.pos - close_sample.pos
+                if np.linalg.norm(diff) == 0:
+                    continue
+                field_intensity = self.field_intensity(diff)
+                total_field += close_sample.mass * field_intensity
+        return total_field
+
+    def compute_far(self, cell: FMMCell) -> Vec3:
+        return cell.field_tensor[1:]
 
     def naive_update(self):
         """
-        Updates the system with the basic O(n^2) algorithm.
+        Updates the system with the basic O(len(self.samples)^2) algorithm.
         Used for speed comparison with the enhanced algorithm.
         """
         new_poss = np.zeros((len(self.samples), 3))
@@ -345,26 +405,6 @@ class FMMSolver:
         for index, sample in enumerate(self.samples):
             sample.prev_pos = sample.pos
             sample.pos = new_poss[index]
-
-    def compute_close(self, cell: FMMCell, sample: MassSample) -> Vec3:
-        total_field = np.zeros(3)
-        for neighbor_cell in cell.neighbors:
-            for close_sample in neighbor_cell.samples:
-                diff = sample.pos - close_sample.pos
-                if np.linalg.norm(diff) == 0:
-                    continue
-
-                field_intensity = (
-                    -self.G
-                    * diff
-                    / (np.linalg.norm(diff) ** 3)
-                    * self.grad_phi(np.linalg.norm(diff) / self.epsilon)
-                )
-                total_field += close_sample.mass * field_intensity
-        return total_field
-
-    def compute_far(self, cell: FMMCell) -> Vec3:
-        return cell.field_tensor[1:]
 
     # Utilities
 

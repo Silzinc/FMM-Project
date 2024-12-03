@@ -13,12 +13,8 @@ def grad_phi(xi: float) -> float:
 
 
 samples = gen_random_samples(100)
-solver = FMMSolver(size, grad_phi, 0.1, deepcopy(samples), 5)
-naive_solver = FMMSolver(size, grad_phi, 0.1, deepcopy(samples), 5)
-
-solver.make_tree()
-solver.compute_multipole_extension_barycenter()
-solver.compute_field_tensors_neighbors()
+solver = FMMSolver(size, grad_phi, 0.1, deepcopy(samples), 4)
+naive_solver = FMMSolver(size, grad_phi, 0.1, deepcopy(samples), 4)
 
 ups = 100
 print(
