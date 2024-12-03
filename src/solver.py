@@ -68,7 +68,7 @@ class GenericSolver:
             field intensity (Vec3)
         """
         return (
-            -self.G
+            self.G
             * diff
             / (np.linalg.norm(diff) ** 3)
             * self.grad_phi(np.linalg.norm(diff) / self.epsilon)
