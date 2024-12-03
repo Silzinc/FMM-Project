@@ -45,6 +45,7 @@ $$
       $$
       \begin{aligned}
       \varphi(\xi) &= \frac 1 {\sqrt{1 + \xi^2}}\\
+      \phi(\vec r) &= -\frac G r \underbrace{\frac \xi {\sqrt{1 + \xi^2}}}_{\text{Fonction } \texttt{phi}}\\
       \varphi'(\xi) &= -\frac{\xi}{(1 + \xi^2)^{3/2}}\\
       \vec \nabla \phi(\vec r) &=- G\frac{\vec r}{r^3} \times \underbrace{\left(-\frac{\xi^3}{(1 + \xi^2)^{3/2}}\right)}_{\text{Fonction } \texttt{grad\_phi}}\\
       \varphi''(\xi) &= \frac{2\xi^2 - 1}{(1 + \xi^2)^{5/2}}\\
