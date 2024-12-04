@@ -1,0 +1,7 @@
+---
+BasedOnStyle: Microsoft
+AccessModifierOffset: -2
+IndentWidth: 2
+PointerAlignment: "Left"
+ReferenceAlignment: "Pointer"
+---
