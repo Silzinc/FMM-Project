@@ -1,9 +1,35 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
 from typing import List
 
 import numpy as np
 
 from .sample import MassSample
-from .utils import Vec3
+from .utils import Mat3x3, Vec3
+
+
+@dataclass
+class FieldTensor:
+    field: Vec3
+    jacobian: Mat3x3
+
+    def clear(self):
+        self.field.fill(0)
+        self.jacobian.fill(0)
+
+    def __add__(self, other: FieldTensor) -> FieldTensor:
+        return FieldTensor(
+            field=self.field + other.field, jacobian=self.jacobian + other.jacobian
+        )
+
+    def __iadd__(self, other: FieldTensor) -> FieldTensor:
+        self.field += other.field
+        self.jacobian += other.jacobian
+        return self
+
+    def __str__(self):
+        return f"FieldTensor(\nfield: {self.field},\njacobian: {self.jacobian}\n)"
 
 
 class FMMCell:
@@ -27,7 +53,9 @@ class FMMCell:
         self.interaction_list: List[FMMCell] = []
         self.direct_neighbors: List[FMMCell] = []
         # NOTE: The following will be updated with the tree
-        self.field_tensor: Vec3 = np.zeros(3)
+        self.field_tensor: FieldTensor = FieldTensor(
+            field=np.zeros(3), jacobian=np.zeros((3, 3))
+        )
         self.mass: float = 0
         self.barycenter: Vec3 = np.zeros(3)
 

@@ -11,12 +11,22 @@ size = 10.0
 mu = 1.0
 
 
-def phi(xi: float) -> float:
-    return xi / (1 + xi * xi) ** (1 / 2)
+def phi(xi: fmm.Vec3) -> float:
+    xin = np.linalg.norm(xi)
+    return float(xin / (1 + xin * xin) ** (1 / 2))
 
 
-def grad_phi(xi: float) -> float:
-    return -(xi**3) / (1 + xi * xi) ** (3 / 2)
+def grad_phi(xi: fmm.Vec3) -> fmm.Vec3:
+    xin = np.linalg.norm(xi)
+    return -(xin**2) / (1 + xin * xin) ** (3 / 2) * xi
+
+
+def hess_phi(xi: fmm.Vec3) -> fmm.Mat3x3:
+    xin = np.linalg.norm(xi)
+    return xin**3 * (
+        3 * np.outer(xi, xi) / (1 + xin**2) ** (5 / 2)
+        - np.eye(3) / (1 + xin**2) ** (3 / 2)
+    )
 
 
 def test_random_samples_fmm():
@@ -25,32 +35,28 @@ def test_random_samples_fmm():
             fmm.MassSample((np.random.rand(3) - 0.5) * size, mass=mu) for _ in range(n)
         ]
 
-    nsamples = 140
-    updates = 150
-    dt = 0.01
+    nsamples = 100
+    updates = 100
+    dt = 0.1
 
     samples = gen_random_samples(nsamples)
-    solver = fmm.FMMSolver(size, phi, grad_phi, dt, deepcopy(samples), 3)
-    naive_solver = fmm.NaiveSolver(phi, grad_phi, dt, solver.epsilon, deepcopy(samples))
-    solver0 = fmm.NaiveSolver(phi, grad_phi, dt, solver.epsilon, deepcopy(samples))
+    solver_o0 = fmm.FMMSolver(size, dt, deepcopy(samples), 3, phi, grad_phi)
+    solver_o1 = fmm.FMMSolver(
+        size, dt, deepcopy(samples), 3, phi, grad_phi, hess_phi=hess_phi
+    )
+    naive_solver = fmm.NaiveSolver(
+        dt, solver_o0.epsilon, deepcopy(samples), phi, grad_phi
+    )
+    solver_init = fmm.NaiveSolver(
+        dt, solver_o0.epsilon, deepcopy(samples), phi, grad_phi
+    )
 
     print(
-        f"Parameters: {updates} updates with {len(samples)} samples.\n"
-        f"Average position starts at {solver.average_pos()}.\n"
-        f"Standard deviation starts at {solver.std_pos()}.\n"
-        f"Total energy starts at {solver.total_energy()}."
+        f"Parameters: {updates} updates (dt = {dt}) with {len(samples)} samples.\n"
+        f"Average position starts at {solver_init.average_pos()}.\n"
+        f"Standard deviation starts at {solver_init.std_pos()}.\n"
+        f"Total energy starts at {solver_init.total_energy()}."
     )
-    print()
-
-    print("Use fmm solver...")
-    t = time()
-    for k in range(updates):
-        solver.update()
-    print(f"Took {time() - t:.3f} seconds.")
-    print(f"Average position is now {solver.average_pos()}.")
-    print(f"Standard deviation is now {solver.std_pos()}.")
-    print(f"Total energy is now {solver.total_energy()}.")
-    print(f"Square divergence from the start: {solver0.pos_divergence(solver)}")
     print()
 
     print("Use naive solver...")
@@ -61,9 +67,35 @@ def test_random_samples_fmm():
     print(f"Average position is now {naive_solver.average_pos()}")
     print(f"Standard deviation is now {naive_solver.std_pos()}")
     print(f"Total energy is now {naive_solver.total_energy()}.")
-    print(f"Square divergence from the start: {solver0.pos_divergence(naive_solver)}")
+    print(
+        f"Square divergence from the start: {solver_init.pos_divergence(naive_solver)}"
+    )
     print()
 
+    print("Use order 0 fmm solver...")
+    t = time()
+    for _ in range(updates):
+        solver_o0.update()
+    print(f"Took {time() - t:.3f} seconds.")
+    print(f"Average position is now {solver_o0.average_pos()}.")
+    print(f"Standard deviation is now {solver_o0.std_pos()}.")
+    print(f"Total energy is now {solver_o0.total_energy()}.")
+    print(f"Square divergence from the start: {solver_init.pos_divergence(solver_o0)}")
     print(
-        f"Square divergence between the two predictions: {solver.pos_divergence(naive_solver)}"
+        f"Square divergence with the naive solver : {solver_o0.pos_divergence(naive_solver)}"
     )
+    print()
+
+    print("Use order 1 fmm solver...")
+    t = time()
+    for _ in range(updates):
+        solver_o1.update()
+    print(f"Took {time() - t:.3f} seconds.")
+    print(f"Average position is now {solver_o1.average_pos()}.")
+    print(f"Standard deviation is now {solver_o1.std_pos()}.")
+    print(f"Total energy is now {solver_o1.total_energy()}.")
+    print(f"Square divergence from the start: {solver_init.pos_divergence(solver_o1)}")
+    print(
+        f"Square divergence with the naive solver : {solver_o1.pos_divergence(naive_solver)}"
+    )
+    print()

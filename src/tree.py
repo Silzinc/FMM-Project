@@ -4,7 +4,7 @@ import numpy as np
 
 from .cell import FMMCell
 from .sample import MassSample
-from .utils import Vec3
+from .utils import Mat3x3, Vec3
 
 
 class FMMTree:
@@ -131,7 +131,12 @@ class FMMTree:
             min(len(self[l]) - 1, max(0, j))
         ][min(len(self[l]) - 1, max(0, k))]
 
-    def update(self, samples: List[MassSample], field: Callable[[Vec3], Vec3]) -> None:
+    def update(
+        self,
+        samples: List[MassSample],
+        field: Callable[[Vec3], Vec3],
+        field_jacobian: Callable[[Vec3], Mat3x3],
+    ) -> None:
         """
         Updates the tree's content with the given samples and field function.
         The structure itself does not change, but the mass, barycenter, field tensors
@@ -140,6 +145,7 @@ class FMMTree:
         Args:
             samples: list of mass samples
             field: function of the distance between two points representing the field between them per unit mass
+            field_jacobian: function of the distance between two points representing the jacobian of the field between them per unit mass
 
         Returns:
             None
@@ -203,11 +209,13 @@ class FMMTree:
                         cell = self[l][i][j][k]
                         if cell.samples is not None and len(cell.samples) == 0:
                             continue
-                        cell.field_tensor *= 0
+                        cell.field_tensor.clear()
                         for neighbor in cell.interaction_list:
                             diff = cell.barycenter - neighbor.barycenter
                             field_intensity = field(diff)
-                            cell.field_tensor += neighbor.mass * field_intensity
+                            jacobian = field_jacobian(diff)
+                            cell.field_tensor.field += neighbor.mass * field_intensity
+                            cell.field_tensor.jacobian += neighbor.mass * jacobian
         # Then, propagate the field tensors downward.
         for l in range(self.depth() - 1):
             for i in range(2**l):

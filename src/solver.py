@@ -7,7 +7,7 @@ import numpy as np
 from .cell import FMMCell
 from .sample import MassSample
 from .tree import FMMTree
-from .utils import Vec3
+from .utils import Mat3x3, Vec3
 
 
 class GenericSolver:
@@ -15,23 +15,29 @@ class GenericSolver:
     Generic solver template for particles systems physics.
 
     Fields:
+
         phi: function of r/epsilon representing the potential
-            of one "particle" per unit mass (Callable[[float], float])
+            of one "particle" per unit mass (Callable[[Vec3], float])
+
         grad_phi: function of r/epsilon representing the gradient
-            potential of one "particle" per unit mass (Callable[[float], float])
+            potential of one "particle" per unit mass (Callable[[Vec3], Vec3])
+
         dt: timestep (float)
+
         samples: list of mass samples (MassSample)
+
         epsilon: particle smoothing size (float)
+
         G: gravitational constant (float)
     """
 
     def __init__(
         self,
-        phi: Callable[[float], float],
-        grad_phi: Callable[[float], float],
         dt: float,
         epsilon: float,
         samples: List[MassSample],
+        phi: Callable[[Vec3], float],
+        grad_phi: Callable[[Vec3], Vec3],
         G: float = 1e-1,
     ):
         self.phi = phi
@@ -51,11 +57,7 @@ class GenericSolver:
         Returns:
             potential (float)
         """
-        return (
-            -self.G
-            / np.linalg.norm(diff)
-            * self.phi(np.linalg.norm(diff) / self.epsilon)
-        )
+        return float(-self.G / np.linalg.norm(diff) * self.phi(diff / self.epsilon))
 
     def field_intensity(self, diff: Vec3) -> Vec3:
         """
@@ -67,12 +69,7 @@ class GenericSolver:
         Returns:
             field intensity (Vec3)
         """
-        return (
-            self.G
-            * diff
-            / (np.linalg.norm(diff) ** 3)
-            * self.grad_phi(np.linalg.norm(diff) / self.epsilon)
-        )
+        return self.G / (np.linalg.norm(diff) ** 2) * self.grad_phi(diff / self.epsilon)
 
     def update(self):
         """
@@ -124,42 +121,81 @@ class GenericSolver:
             for s2 in self.samples:
                 if s1 is not s2:
                     pe += self.potential(s1.pos - s2.pos)
-        return ke + pe
+        return float(ke + pe)
 
 
 class FMMSolver(GenericSolver):
     """
+    Solver for particle systems using the Fast Multipole Multiplication method.
+    If the depth of the space tree is chosen to be O(log8(len(samples)),
+    the time complexity of the algorithm is expected to be O(len(samples)).
+
     Fields:
+
         size: size of the simulation cube (float)
+
         phi: function of r/epsilon representing the potential
-            of one "particle" per unit mass (Callable[[float], float])
+            of one "particle" per unit mass (Callable[[Vec3], float])
+
         grad_phi: function of r/epsilon representing the gradient
-            potential of one "particle" per unit mass (Callable[[float], float])
+            potential of one "particle" per unit mass (Callable[[Vec3], Vec3])
+
+        hess_phi: function of r/epsilon representing the hessian
+            potential of one "particle" per unit mass. Set to None to
+            use an order 0 expansion of the inter-cell field. None by default.
+            (Callable[[Vec3], Mat3x3] | None)
+
         dt: timestep (float)
+
         tree: octree of the volume cells (FMMTree)
+
         samples: list of mass samples (MassSample)
+
         epsilon: particle smoothing size (float)
+
         G: gravitational constant (float, defaults to 0.1)
     """
 
     def __init__(
         self,
         size: float,
-        phi: Callable[[float], float],
-        grad_phi: Callable[[float], float],
         dt: float,
         samples: List[MassSample],
         depth: int,
+        phi: Callable[[Vec3], float],
+        grad_phi: Callable[[Vec3], Vec3],
+        hess_phi: Callable[[Vec3], Mat3x3] | None = None,
         G: float = 1e-1,
     ):
         self.size = size
         self.phi = phi
         self.grad_phi = grad_phi
+        self.hess_phi = hess_phi
         self.dt = dt
         self.tree = FMMTree(depth, size)
         self.samples = samples
         self.epsilon = 4 * size / np.sqrt(len(samples))
         self.G = G
+
+    def field_jacobian(self, diff: Vec3) -> Mat3x3:
+        """
+        Helper function to compute the field jacobian from one point to another, given their position difference.
+
+        Args:
+            diff: position difference between the two points (Vec3)
+
+        Returns:
+            field jacobian (Mat3x3)
+        """
+        return (
+            np.zeros((3, 3))
+            if self.hess_phi is None
+            else (
+                self.G
+                / (np.linalg.norm(diff) ** 3)
+                * self.hess_phi(diff / self.epsilon)
+            )
+        )
 
     def update(self):
         """
@@ -174,7 +210,7 @@ class FMMSolver(GenericSolver):
             O(8^self.tree.depth() + len(self.samples)), which becomes O(len(self.samples))
             if the depth of the tree is chosen to be O(log8(len(samples)).
         """
-        self.tree.update(self.samples, self.field_intensity)
+        self.tree.update(self.samples, self.field_intensity, self.field_jacobian)
         new_poss = np.zeros((len(self.samples), 3))
         index = 0
         depth = self.tree.depth()
@@ -188,7 +224,7 @@ class FMMSolver(GenericSolver):
                     for sample in cell.samples:
                         grad_potential = np.zeros(3)
                         grad_potential += self.compute_close(cell, sample)
-                        grad_potential += self.compute_far(cell)
+                        grad_potential += self.compute_far(cell, sample)
                         acc = grad_potential
                         new_poss[index] = (
                             2 * sample.pos - sample.prev_pos + acc * self.dt**2
@@ -222,8 +258,10 @@ class FMMSolver(GenericSolver):
                 total_field += close_sample.mass * field_intensity
         return total_field
 
-    def compute_far(self, cell: FMMCell) -> Vec3:
-        return cell.field_tensor
+    def compute_far(self, cell: FMMCell, sample: MassSample) -> Vec3:
+        return cell.field_tensor.field + cell.field_tensor.jacobian @ (
+            sample.pos - cell.barycenter
+        )
 
     def iter_cells(self, floor: int) -> Generator[FMMCell]:
         if floor >= self.tree.depth():
@@ -244,13 +282,19 @@ class NaiveSolver(GenericSolver):
     Used for speed comparison with better algorithms.
 
     Fields:
+
         phi: function of r/epsilon representing the potential
-            of one "particle" per unit mass (Callable[[float], float])
+            of one "particle" per unit mass (Callable[[Vec3], float])
+
         grad_phi: function of r/epsilon representing the gradient
-            potential of one "particle" per unit mass (Callable[[float], float])
+            potential of one "particle" per unit mass (Callable[[Vec3], Vec3])
+
         dt: timestep (float)
+
         samples: list of mass samples (MassSample)
+
         epsilon: particle smoothing size (float)
+
         G: gravitational constant (float)
     """
 
