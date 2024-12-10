@@ -2,7 +2,8 @@
   "dependencies": [
     "boost-multi-array",
     "boost-qvm",
+    "doctest",
     "fmt",
-    "boost-stacktrace"
+    "matplotplusplus"
   ]
 }
