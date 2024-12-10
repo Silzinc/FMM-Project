@@ -325,7 +325,7 @@ class FMMSolver:
         Returns:
             potential (float)
         """
-        return (
+        return float(
             -self.G
             / np.linalg.norm(diff)
             * self.phi(np.linalg.norm(diff) / self.epsilon)
@@ -464,4 +464,4 @@ class FMMSolver:
             for s2 in self.samples:
                 if s1 is not s2:
                     pe += self.potential(s1.pos - s2.pos)
-        return ke + pe
+        return float(ke + pe)
