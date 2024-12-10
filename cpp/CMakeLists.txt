@@ -30,8 +30,9 @@ target_include_directories(${TESTS_NAME}
                            PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 set(LIBS_TO_ALWAYS_LINK fmt::fmt Boost::multi_array Boost::qvm)
-set(MAIN_LIBS_TO_LINK ${LIBS_TO_ALWAYS_LINK} Matplot++::matplot Matplot++::cimg)
-set(TEST_LIBS_TO_LINK ${LIBS_TO_ALWAYS_LINK} doctest::doctest)
+set(MAIN_LIBS_TO_LINK ${LIBS_TO_ALWAYS_LINK})
+set(TEST_LIBS_TO_LINK ${LIBS_TO_ALWAYS_LINK} Matplot++::matplot Matplot++::cimg
+                      doctest::doctest)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${MAIN_LIBS_TO_LINK})
 target_link_libraries(${TESTS_NAME} PRIVATE ${TEST_LIBS_TO_LINK})

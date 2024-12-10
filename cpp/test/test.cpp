@@ -1,3 +1,4 @@
+#include <thread>
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
@@ -7,6 +8,7 @@
 #include <boost/qvm.hpp>
 #include <ctime>
 #include <fmt/core.h>
+#include <matplot/matplot.h>
 #include <random>
 
 TEST_CASE("FMM solver with uniformly randomly distributed samples")
@@ -22,8 +24,6 @@ TEST_CASE("FMM solver with uniformly randomly distributed samples")
   const int nsamples = 100;
   const int updates = 100;
   const double dt = 0.1;
-
-  int threads = 10;
 
   std::vector<fmm::MassSample> samples;
   samples.reserve(nsamples);
@@ -72,8 +72,7 @@ TEST_CASE("FMM solver with uniformly randomly distributed samples")
     naive_solver.update();
   clock_t end = clock();
   println(
-    "Took {:.3f} seconds.",
-    (double)threads * (double)(end - start) / (double)CLOCKS_PER_SEC);
+    "Took {:.3f} seconds.", (double)(end - start) / (double)CLOCKS_PER_SEC);
   println("Average position is now {}.", naive_solver.average_position());
   println("Standard deviation is now {}.", naive_solver.std_pos());
   println("Total energy is now {:.3f}.", naive_solver.total_energy());
@@ -115,4 +114,114 @@ TEST_CASE("FMM solver with uniformly randomly distributed samples")
   println(
     "Square divergence with the start: {}.", solver_o1.pos_divergence(solver0));
   println("");
+}
+
+TEST_CASE("Dependency of solving time against number of particles")
+{
+  using fmt::println;
+  namespace plt = matplot;
+
+  const double size = 10.0;
+  const double mu = 1.0;
+  const double dt = 0.1;
+  const int updates = 50;
+
+  const size_t tree_depth = 3;
+  const int nsamples_start = 30;
+  const int nsamples_end = 1000;
+  const float nsamples_factor = 1.1;
+
+  std::mt19937_64 rng(42);
+  std::uniform_real_distribution<double> dist(-size * 0.5, size * 0.5);
+  std::vector<fmm::MassSample> samples;
+
+  fmm::FMMSolver solver_o0(
+    size, dt, {}, tree_depth, &fmm::plummer::phi, &fmm::plummer::grad_phi);
+  fmm::FMMSolver solver_o1(
+    size,
+    dt,
+    {},
+    tree_depth,
+    &fmm::plummer::phi,
+    &fmm::plummer::grad_phi,
+    &fmm::plummer::hess_phi);
+  fmm::NaiveSolver naive_solver(
+    dt, solver_o0.epsilon, {}, &fmm::plummer::phi, &fmm::plummer::grad_phi);
+
+  std::vector<double> times_o0;
+  std::vector<double> times_o1;
+  std::vector<double> times_naive;
+  std::vector<int> samples_count;
+
+  samples.reserve(nsamples_end);
+
+  for (int nsamples = nsamples_start; nsamples < nsamples_end;
+       nsamples =
+         static_cast<int>(static_cast<float>(nsamples) * nsamples_factor)) {
+
+    println("Number of samples: {}", nsamples);
+    samples_count.push_back(nsamples);
+
+    while (samples.size() < nsamples)
+      samples.emplace_back(fmm::Vec3{ dist(rng), dist(rng), dist(rng) }, mu);
+
+    solver_o0.samples.clear();
+    solver_o0.samples.insert(
+      solver_o0.samples.end(), samples.begin(), samples.end());
+
+    solver_o1.samples.clear();
+    solver_o1.samples.insert(
+      solver_o1.samples.end(), samples.begin(), samples.end());
+
+    naive_solver.samples.clear();
+    naive_solver.samples.insert(
+      naive_solver.samples.end(), samples.begin(), samples.end());
+
+    std::thread t0([&solver_o0, &times_o0, updates]() {
+      clock_t start = clock();
+      for (int i = 0; i < updates; i++)
+        solver_o0.update();
+      clock_t end = clock();
+      times_o0.push_back((double)(end - start) / (double)CLOCKS_PER_SEC);
+    });
+
+    std::thread t1([&solver_o1, &times_o1, updates]() {
+      clock_t start = clock();
+      for (int i = 0; i < updates; i++)
+        solver_o1.update();
+      clock_t end = clock();
+      times_o1.push_back((double)(end - start) / (double)CLOCKS_PER_SEC);
+    });
+
+    std::thread tnaive([&naive_solver, &times_naive, updates]() {
+      clock_t start = clock();
+      for (int i = 0; i < updates; i++)
+        naive_solver.update();
+      clock_t end = clock();
+      times_naive.push_back((double)(end - start) / (double)CLOCKS_PER_SEC);
+    });
+
+    t0.join();
+    t1.join();
+    tnaive.join();
+  }
+
+  plt::hold(plt::on);
+
+  plt::loglog(samples_count, times_o0, "-r")
+    ->line_width(2)
+    .display_name("FMM 0-order");
+  plt::loglog(samples_count, times_o1, "-b")
+    ->line_width(2)
+    .display_name("FMM 1st-order");
+  plt::loglog(samples_count, times_naive, "-g")
+    ->line_width(2)
+    .display_name("Naive");
+
+  plt::xlabel("Number of samples");
+  plt::ylabel("Time for " + std::to_string(updates) + " updates (s)");
+
+  plt::hold(plt::off);
+
+  plt::show();
 }
