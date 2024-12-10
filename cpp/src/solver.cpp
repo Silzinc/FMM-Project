@@ -2,46 +2,46 @@
 #include "cell.hpp"
 #include "tree.hpp"
 #include "utils.hpp"
-#include <algorithm>
 #include <boost/qvm.hpp>
 #include <boost/qvm/math.hpp>
 #include <fmt/base.h>
 #include <ranges>
-#include <thread>
 
 namespace qvm = boost::qvm;
 
+namespace fmm
+{
 GenericSolver::GenericSolver(
   const double dt,
   const double epsilon,
   const std::vector<MassSample>& samples,
-  const std::function<double(const Vec3&)>& phi,
-  const std::function<Vec3(const Vec3&)>& grad_phi,
+  const std::function<double(const Vec3&)>& arg_phi,
+  const std::function<Vec3(const Vec3&)>& arg_grad_phi,
   const double G)
   : dt(dt)
   , epsilon(epsilon)
   , samples(samples)
-  , phi(phi)
-  , grad_phi(grad_phi)
+  , phi(arg_phi)
+  , grad_phi(arg_grad_phi)
   , G(G)
 {}
 
 double
 GenericSolver::potential(const Vec3& diff) const
 {
-  return -G / qvm::mag(diff) * phi(diff / epsilon);
+  return -G / qvm::mag(diff) * this->phi(diff / epsilon);
 }
 
 Vec3
 GenericSolver::field_intensity(const Vec3& diff) const
 {
-  return G / qvm::mag_sqr(diff) * grad_phi(diff / epsilon);
+  return G / qvm::mag_sqr(diff) * this->grad_phi(diff / epsilon);
 }
 
 Vec3
 GenericSolver::average_position() const
 {
-  Vec3 avg{ 0.0f };
+  Vec3 avg{ 0.0 };
   for (const MassSample& sample : samples)
     avg += sample.position;
   return avg / static_cast<double>(samples.size());
@@ -53,7 +53,7 @@ GenericSolver::std_pos() const
   using qvm::X, qvm::Y, qvm::Z;
 
   const Vec3 avg = average_position();
-  Vec3 std{ 0.0f };
+  Vec3 std{ 0.0 };
   for (const MassSample& sample : samples) {
     const Vec3 diff = sample.position - avg;
     std += Vec3{ X(diff) * X(diff), Y(diff) * Y(diff), Z(diff) * Z(diff) };
@@ -70,7 +70,7 @@ GenericSolver::pos_divergence(const GenericSolver& other) const
 {
   const auto& range = std::ranges::views::iota;
 
-  double divergence = 0.0f;
+  double divergence = 0.0;
   for (size_t i : range(0ul, samples.size())) {
     const Vec3 diff = samples[i].position - other.samples[i].position;
     divergence += qvm::mag_sqr(diff);
@@ -83,12 +83,12 @@ double
 GenericSolver::total_energy() const
 {
   // Kinetic energy
-  double ke = 0.0f;
+  double ke = 0.0;
   for (const MassSample& sample : samples) {
-    ke += 0.5f * sample.mass * qvm::mag_sqr(sample.speed(dt));
+    ke += 0.5 * sample.mass * qvm::mag_sqr(sample.speed(dt));
   }
   // Potential energy
-  double pe = 0.0f;
+  double pe = 0.0;
   for (const MassSample& s1 : samples)
     for (const MassSample& s2 : samples)
       if (&s1 != &s2)
@@ -101,42 +101,41 @@ FMMSolver::FMMSolver(
   const double dt,
   const std::vector<MassSample>& samples,
   const index_t depth,
-  const std::function<double(const Vec3&)>& phi,
-  const std::function<Vec3(const Vec3&)>& grad_phi,
-  const std::optional<std::function<Mat3x3(const Vec3&)>>& hess_phi,
+  const std::function<double(const Vec3&)>& arg_phi,
+  const std::function<Vec3(const Vec3&)>& arg_grad_phi,
+  const std::optional<std::function<Mat3x3(const Vec3&)>>& arg_hess_phi,
   const double G)
   : GenericSolver(
       dt,
-      4.0f * size / std::sqrt(static_cast<double>(samples.size())),
+      4.0 * size / std::sqrt(static_cast<double>(samples.size())),
       samples,
-      phi,
-      grad_phi,
+      arg_phi,
+      arg_grad_phi,
       G)
   , tree(FMMTree(depth, size))
   , size(size)
-  , hess_phi(hess_phi)
+  , hess_phi(arg_hess_phi)
 {}
 
 Mat3x3
 FMMSolver::field_jacobian(const Vec3& diff) const
 {
   if (hess_phi.has_value())
-    return G / std::pow(qvm::mag(diff), 3.0f) *
-           hess_phi.value()(diff / epsilon);
+    return G / std::pow(qvm::mag(diff), 3.0) * hess_phi.value()(diff / epsilon);
   else
-    return Mat3x3{ 0.0f };
+    return Mat3x3{ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 }
 
 Vec3
 FMMSolver::compute_close(const FMMCell& cell, const MassSample& sample) const
 {
-  Vec3 total_field = { 0.0f };
+  Vec3 total_field = { 0.0, 0.0, 0.0 };
   for (const auto& neighbor_cell : cell.direct_neighbors) {
     if (neighbor_cell.get().samples.empty())
       continue;
     for (const auto& neighbor_sample : neighbor_cell.get().samples) {
       const Vec3 diff = sample.position - neighbor_sample.get().position;
-      if (qvm::mag(diff) == 0.0f)
+      if (qvm::mag(diff) == 0.0)
         continue;
       total_field += neighbor_sample.get().mass * field_intensity(diff);
     }
@@ -172,7 +171,7 @@ FMMSolver::update(const size_t threads)
         if (cell.samples.empty())
           continue;
         for (const auto& sample : cell.samples) {
-          Vec3 acc = { 0.0f };
+          Vec3 acc = { 0.0, 0.0, 0.0 };
           acc += compute_close(cell, sample);
           acc += compute_far(cell, sample);
           new_poss[index] =
@@ -203,16 +202,14 @@ FMMSolver::update(const size_t threads)
 void
 NaiveSolver::update(const size_t threads)
 {
-  std::vector<Vec3> new_poss;
-  new_poss.resize(samples.size());
-  std::ranges::fill(new_poss, Vec3{ 0.0f, 0.0f, 0.0f });
+  std::vector<Vec3> new_poss(samples.size());
 
   for (index_t index = 0; index < samples.size(); ++index) {
-    Vec3 acc = { 0.0f };
+    Vec3 acc = { 0.0, 0.0, 0.0 };
     const MassSample& sample1 = samples[index];
     for (const MassSample& sample2 : samples) {
       const Vec3& diff = sample1.position - sample2.position;
-      if (qvm::mag_sqr(diff) != 0.0f)
+      if (qvm::mag_sqr(diff) != 0.0)
         acc += sample2.mass * field_intensity(diff);
     }
     new_poss[index] = 2 * sample1.position - sample1.prev_pos + acc * dt * dt;
@@ -223,4 +220,5 @@ NaiveSolver::update(const size_t threads)
     sample.prev_pos = sample.position;
     sample.position = new_poss[index];
   }
+}
 }

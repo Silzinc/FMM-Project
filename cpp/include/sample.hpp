@@ -2,6 +2,8 @@
 #include "utils.hpp"
 #include <optional>
 
+namespace fmm
+{
 /**
  * @brief A sample of a mass point
  *
@@ -17,7 +19,7 @@
  * @param position Position vector of the particle (Vec3)
  * @param prev_pos Previous position vector (Vec3)
  *
- * @see MassSample() Constructor allows optional mass (default 1.0f) and
+ * @see MassSample() Constructor allows optional mass (default 1.0) and
  * previous position
  * @see speed() Method to calculate current velocity
  */
@@ -33,9 +35,12 @@ struct MassSample
    * @param pos Position of the mass sample
    * @param prev_pos Previous position of the mass sample, default is the same
    * as pos
-   * @param mass Mass of the mass sample, default is 1.0f
+   * @param mass Mass of the mass sample, default is 1.0
    */
-  MassSample(Vec3 pos, std::optional<Vec3> prev_pos, double mass);
+  explicit MassSample(
+    Vec3 pos,
+    double mass = 1.0,
+    std::optional<Vec3> prev_pos = std::nullopt);
 
   /**
    * @brief Calculate the speed of the mass sample
@@ -45,3 +50,4 @@ struct MassSample
    */
   [[nodiscard]] Vec3 speed(double dt) const;
 };
+}

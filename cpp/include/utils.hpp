@@ -3,16 +3,31 @@
 #include <fmt/base.h>
 #include <fmt/format.h>
 
-typedef boost::qvm::vec<double, 3> Vec3;
-typedef boost::qvm::mat<double, 3, 3> Mat3x3;
+namespace qvm = boost::qvm;
+
+namespace fmm
+{
+typedef qvm::vec<double, 3> Vec3;
+typedef qvm::mat<double, 3, 3> Mat3x3;
+
+namespace plummer
+{
+double
+phi(const fmm::Vec3& xi);
+Vec3
+grad_phi(const Vec3& xi);
+Mat3x3
+hess_phi(const Vec3& xi);
+}
+}
 
 template<>
-struct fmt::formatter<Vec3>
+struct fmt::formatter<fmm::Vec3>
 {
   constexpr static auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
   template<typename FormatContext>
-  auto format(const Vec3& v, FormatContext& ctx) const
+  auto format(const fmm::Vec3& v, FormatContext& ctx) const
   {
     return format_to(
       ctx.out(), "({:.2f}, {:.2f}, {:.2f})", v.a[0], v.a[1], v.a[2]);
@@ -20,12 +35,12 @@ struct fmt::formatter<Vec3>
 };
 
 template<>
-struct fmt::formatter<Mat3x3>
+struct fmt::formatter<fmm::Mat3x3>
 {
   constexpr static auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
   template<typename FormatContext>
-  auto format(const Mat3x3& m, FormatContext& ctx) const
+  auto format(const fmm::Mat3x3& m, FormatContext& ctx) const
   {
     return format_to(
       ctx.out(),

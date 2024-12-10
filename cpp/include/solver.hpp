@@ -1,5 +1,4 @@
 #pragma once
-
 #include "cell.hpp"
 #include "sample.hpp"
 #include "tree.hpp"
@@ -8,6 +7,8 @@
 #include <optional>
 #include <vector>
 
+namespace fmm
+{
 /**
  * @brief Generic solver for particle systems.
  *
@@ -35,9 +36,9 @@ struct GenericSolver
     double dt,
     double epsilon,
     const std::vector<MassSample>& samples,
-    const std::function<double(const Vec3&)>& phi,
-    const std::function<Vec3(const Vec3&)>& grad_phi,
-    double G = 0.1f);
+    const std::function<double(const Vec3&)>& arg_phi,
+    const std::function<Vec3(const Vec3&)>& arg_grad_phi,
+    double G = 0.1);
 
   /**
    * Helper function to compute the potential between two points, given their
@@ -100,11 +101,11 @@ struct FMMSolver : GenericSolver
     double dt,
     const std::vector<MassSample>& samples,
     index_t depth,
-    const std::function<double(const Vec3&)>& phi,
-    const std::function<Vec3(const Vec3&)>& grad_phi,
-    const std::optional<std::function<Mat3x3(const Vec3&)>>& hess_phi =
+    const std::function<double(const Vec3&)>& arg_phi,
+    const std::function<Vec3(const Vec3&)>& arg_grad_phi,
+    const std::optional<std::function<Mat3x3(const Vec3&)>>& arg_hess_phi =
       std::nullopt,
-    double G = 0.1f);
+    double G = 0.1);
 
   /**
    * Helper function to compute the field jacobian between two points, given
@@ -148,3 +149,4 @@ struct NaiveSolver : GenericSolver
 
   void update(size_t threads = 1);
 };
+}

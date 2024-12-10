@@ -2,6 +2,8 @@
 
 namespace qvm = boost::qvm;
 
+namespace fmm
+{
 FieldTensor::FieldTensor(const Vec3& field, const Mat3x3& jacobian)
   : field(field)
   , jacobian(jacobian)
@@ -10,54 +12,55 @@ FieldTensor::FieldTensor(const Vec3& field, const Mat3x3& jacobian)
 void
 FieldTensor::clear()
 {
-  field *= 0.0f;
-  jacobian *= 0.0f;
+  field *= 0.0;
+  jacobian *= 0.0;
 }
 
-FieldTensor&
+void
 FieldTensor::operator+=(const FieldTensor& rhs)
 {
   field += rhs.field;
   jacobian += rhs.jacobian;
-  return *this;
 }
 
 FieldTensor
 FieldTensor::operator+(const FieldTensor& rhs) const
 {
-  FieldTensor result = *this;
-  result += rhs;
-  return result;
+  return { field + rhs.field, jacobian + rhs.jacobian };
 }
 
-FieldTensor&
+void
 FieldTensor::operator-=(const FieldTensor& rhs)
 {
   field -= rhs.field;
   jacobian -= rhs.jacobian;
-  return *this;
 }
 
 FieldTensor
 FieldTensor::operator-(const FieldTensor& rhs) const
 {
-  FieldTensor result = *this;
-  result -= rhs;
-  return result;
+  return { field - rhs.field, jacobian - rhs.jacobian };
 }
 
 FMMCell::FMMCell(const Vec3& centroid, const double size)
   : centroid(centroid)
   , size(size)
-  , field_tensor(FieldTensor(
-      Vec3{ 0.0f, 0.0f, 0.0f },
-      Mat3x3{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }))
-  , mass(0.0f)
-  , barycenter(Vec3{ 0.0f, 0.0f, 0.0f })
+  , field_tensor({
+      {0.0,  0.0, 0.0},
+      { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }
+})
+  , mass(0.0)
+  , barycenter({ 0.0, 0.0, 0.0 })
+  , interaction_list({})
+  , direct_neighbors({})
 {}
 
 bool
 FMMCell::contains_sample(const MassSample& sample) const
 {
-  return qvm::mag(centroid - sample.position) < size / 2.0f;
+  const auto diff = sample.position - centroid;
+  return std::max(
+           { std::abs(diff.a[0]), std::abs(diff.a[1]), std::abs(diff.a[2]) }) <
+         size / 2.0;
+}
 }

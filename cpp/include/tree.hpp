@@ -1,11 +1,12 @@
 #pragma once
-
 #include "cell.hpp"
 #include "utils.hpp"
 #include <boost/multi_array.hpp>
 #include <functional>
 #include <vector>
 
+namespace fmm
+{
 template<typename T>
 using Array3D = boost::multi_array<T, 3>;
 using index_t = Array3D<FMMCell>::index;
@@ -41,3 +42,4 @@ struct FMMTree
 
   Array3D<FMMCell>& operator[](index_t i);
 };
+}

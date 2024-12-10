@@ -4,6 +4,8 @@
 #include <functional>
 #include <vector>
 
+namespace fmm
+{
 struct FieldTensor
 {
   Vec3 field;
@@ -11,9 +13,9 @@ struct FieldTensor
 
   FieldTensor(const Vec3& field, const Mat3x3& jacobian);
   void clear();
-  FieldTensor& operator+=(const FieldTensor& rhs);
+  void operator+=(const FieldTensor& rhs);
   FieldTensor operator+(const FieldTensor& rhs) const;
-  FieldTensor& operator-=(const FieldTensor& rhs);
+  void operator-=(const FieldTensor& rhs);
   FieldTensor operator-(const FieldTensor& rhs) const;
 };
 
@@ -54,7 +56,8 @@ struct FMMCell
   Vec3 barycenter;
 
   explicit FMMCell(
-    const Vec3& centroid = Vec3{ 0.0f, 0.0f, 0.0f },
-    double size = 0.0f);
+    const Vec3& centroid = Vec3{ 0.0, 0.0, 0.0 },
+    double size = 0.0);
   [[nodiscard]] bool contains_sample(const MassSample& sample) const;
 };
+}

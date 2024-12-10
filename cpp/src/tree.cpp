@@ -7,6 +7,8 @@
 #include "sample.hpp"
 #include "tree.hpp"
 
+namespace fmm
+{
 FMMTree::FMMTree(const index_t depth, const double size)
 {
   const auto& range = std::ranges::views::iota;
@@ -19,14 +21,17 @@ FMMTree::FMMTree(const index_t depth, const double size)
     const auto fn = static_cast<double>(n);
     data.emplace_back(boost::extents[n][n][n]);
 
-    for (index_t i = 0; i < n; i++)
-      for (index_t j = 0; j < n; j++)
-        for (index_t k = 0; k < n; k++)
+    for (index_t i = 0; i < n; i++) {
+      for (index_t j = 0; j < n; j++) {
+        for (index_t k = 0; k < n; k++) {
           data[l][i][j][k] = FMMCell(
-            Vec3{ size * ((static_cast<double>(i) + 0.5f) / fn - 0.5f),
-                  size * ((static_cast<double>(j) + 0.5f) / fn - 0.5f),
-                  size * ((static_cast<double>(k) + 0.5f) / fn - 0.5f) },
+            Vec3{ size * ((static_cast<double>(i) + 0.5) / fn - 0.5),
+                  size * ((static_cast<double>(j) + 0.5) / fn - 0.5),
+                  size * ((static_cast<double>(k) + 0.5) / fn - 0.5) },
             size / fn);
+        }
+      }
+    }
   }
 
   for (index_t l = 0; l < depth; l++) {
@@ -42,7 +47,6 @@ FMMTree::FMMTree(const index_t depth, const double size)
               for (const index_t nk :
                    range(std::max(k, 1l) - 1l, std::min(k + 2l, width)))
                 cell.direct_neighbors.emplace_back(data[l][ni][nj][nk]);
-
           if (l > 0) {
             index_t pi = i / 2, pj = j / 2, pk = k / 2;
             for (const index_t ni :
@@ -92,7 +96,7 @@ FMMTree::get_leaf_from_pos(const Vec3& pos)
   index_t width = 1 << l;
   auto wf = static_cast<double>(width);
   double size = space_size();
-  Vec3 local_pos = pos / size + Vec3{ 0.5f, 0.5f, 0.5f };
+  Vec3 local_pos = pos / size + Vec3{ 0.5, 0.5, 0.5 };
   index_t i = std::clamp(
     static_cast<index_t>(std::floor(X(local_pos) * wf)), 0l, width - 1);
   index_t j = std::clamp(
@@ -122,8 +126,8 @@ FMMTree::update(
       for (const index_t k : range(0, width)) {
         FMMCell& leaf = data[l][i][j][k];
         leaf.samples.clear();
-        leaf.mass = 0.0f;
-        leaf.barycenter = Vec3{ 0.0f, 0.0f, 0.0f };
+        leaf.mass = 0.0;
+        leaf.barycenter = { 0.0, 0.0, 0.0 };
       }
     }
   }
@@ -156,19 +160,18 @@ FMMTree::update(
       for (const index_t j : range(0, width)) {
         for (const index_t k : range(0, width)) {
           FMMCell& cell = data[l][i][j][k];
-          cell.mass = 0.0f;
-          cell.barycenter = Vec3{ 0.0f, 0.0f, 0.0f };
+          cell.mass = 0.0;
+          cell.barycenter = Vec3{ 0.0, 0.0, 0.0 };
           for (const index_t ci : { 2 * i, 2 * i + 1 }) {
             for (const index_t cj : { 2 * j, 2 * j + 1 }) {
               for (const index_t ck : { 2 * k, 2 * k + 1 }) {
-
                 FMMCell& child = data[l + 1][ci][cj][ck];
                 cell.mass += child.mass;
                 cell.barycenter += child.mass * child.barycenter;
               }
             }
           }
-          if (cell.mass > 0.0f)
+          if (cell.mass > 0.0)
             cell.barycenter /= cell.mass;
         }
       }
@@ -186,12 +189,13 @@ FMMTree::update(
           if (cell.samples.empty())
             continue;
           cell.field_tensor.clear();
-          for (auto& neighbor : cell.interaction_list) {
-            Vec3 diff = cell.barycenter - neighbor.get().barycenter;
-            Vec3 field_intensity = field(diff);
-            Mat3x3 jacobian = field_jacobian(diff);
-            cell.field_tensor.field += neighbor.get().mass * field_intensity;
-            cell.field_tensor.jacobian += neighbor.get().mass * jacobian;
+          for (auto& neighbor_ref : cell.interaction_list) {
+            const FMMCell& neighbor = neighbor_ref.get();
+            const Vec3 diff = cell.barycenter - neighbor.barycenter;
+            const Vec3 field_intensity = field(diff);
+            const Mat3x3 jacobian = field_jacobian(diff);
+            cell.field_tensor.field += neighbor.mass * field_intensity;
+            cell.field_tensor.jacobian += neighbor.mass * jacobian;
           }
         }
       }
@@ -222,4 +226,5 @@ Array3D<FMMCell>&
 FMMTree::operator[](index_t i)
 {
   return data[i];
+}
 }
