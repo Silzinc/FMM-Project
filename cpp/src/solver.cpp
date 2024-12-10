@@ -151,7 +151,7 @@ FMMSolver::compute_far(const FMMCell& cell, const MassSample& sample)
 }
 
 void
-FMMSolver::update(const size_t threads)
+FMMSolver::update()
 {
   const auto& range = std::ranges::views::iota;
 
@@ -200,7 +200,7 @@ FMMSolver::update(const size_t threads)
 }
 
 void
-NaiveSolver::update(const size_t threads)
+NaiveSolver::update()
 {
   std::vector<Vec3> new_poss(samples.size());
 

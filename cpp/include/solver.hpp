@@ -122,7 +122,7 @@ struct FMMSolver : GenericSolver
   [[nodiscard]] static Vec3 compute_far(
     const FMMCell& cell,
     const MassSample& sample);
-  void update(size_t threads = 1);
+  void update();
 };
 
 /**
@@ -147,6 +147,6 @@ struct NaiveSolver : GenericSolver
   // Inherit constructor
   using GenericSolver::GenericSolver;
 
-  void update(size_t threads = 1);
+  void update();
 };
 }
