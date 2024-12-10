@@ -120,7 +120,7 @@ class GenericSolver:
         for s1 in self.samples:
             for s2 in self.samples:
                 if s1 is not s2:
-                    pe += self.potential(s1.pos - s2.pos)
+                    pe += self.potential(s1.pos - s2.pos) * s1.mass * s2.mass
         return float(ke + pe)
 
 
