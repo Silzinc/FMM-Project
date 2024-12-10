@@ -30,16 +30,18 @@ def hess_phi(xi: fmm.Vec3) -> fmm.Mat3x3:
 
 
 def test_random_samples_fmm():
-    def gen_random_samples(n: int):
-        return [
-            fmm.MassSample((np.random.rand(3) - 0.5) * size, mass=mu) for _ in range(n)
-        ]
-
     nsamples = 100
     updates = 100
     dt = 0.1
 
-    samples = gen_random_samples(nsamples)
+    # Use Mersenne Twister 19937 to match the C++ implementation
+    # Well after trying it, it seems the implementations are not the same
+    rng = np.random.Generator(np.random.MT19937(42))
+    samples = [
+        fmm.MassSample(rng.uniform(low=-size * 0.5, high=size * 0.5, size=3), mass=mu)
+        for _ in range(nsamples)
+    ]
+
     solver_o0 = fmm.FMMSolver(size, dt, deepcopy(samples), 3, phi, grad_phi)
     solver_o1 = fmm.FMMSolver(
         size, dt, deepcopy(samples), 3, phi, grad_phi, hess_phi=hess_phi
