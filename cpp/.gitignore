@@ -1,5 +1,7 @@
 /.cache
 /vcpkg
 /build
+/vcpkg_installed
 CMakeUserPresets.json
 compile_commands.json
+/cmake-build-debug
