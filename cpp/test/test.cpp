@@ -126,8 +126,7 @@ TEST_CASE("Dependency of solving time against number of particles")
   const double dt = 0.1;
   const int updates = 50;
 
-  const size_t tree_depth = 3;
-  const int nsamples_start = 30;
+  const int nsamples_start = 25;
   const int nsamples_end = 1000;
   const float nsamples_factor = 1.1;
 
@@ -135,23 +134,49 @@ TEST_CASE("Dependency of solving time against number of particles")
   std::uniform_real_distribution<double> dist(-size * 0.5, size * 0.5);
   std::vector<fmm::MassSample> samples;
 
-  fmm::FMMSolver solver_o0(
-    size, dt, {}, tree_depth, &fmm::plummer::phi, &fmm::plummer::grad_phi);
-  fmm::FMMSolver solver_o1(
+  fmm::FMMSolver solver_o0_d3(
+    size, dt, {}, 3, &fmm::plummer::phi, &fmm::plummer::grad_phi);
+  fmm::FMMSolver solver_o1_d3(
     size,
     dt,
     {},
-    tree_depth,
+    3,
+    &fmm::plummer::phi,
+    &fmm::plummer::grad_phi,
+    &fmm::plummer::hess_phi);
+  fmm::FMMSolver solver_o0_d4(
+    size, dt, {}, 4, &fmm::plummer::phi, &fmm::plummer::grad_phi);
+  fmm::FMMSolver solver_o1_d4(
+    size,
+    dt,
+    {},
+    4,
+    &fmm::plummer::phi,
+    &fmm::plummer::grad_phi,
+    &fmm::plummer::hess_phi);
+  fmm::FMMSolver solver_o0_d5(
+    size, dt, {}, 5, &fmm::plummer::phi, &fmm::plummer::grad_phi);
+  fmm::FMMSolver solver_o1_d5(
+    size,
+    dt,
+    {},
+    5,
     &fmm::plummer::phi,
     &fmm::plummer::grad_phi,
     &fmm::plummer::hess_phi);
   fmm::NaiveSolver naive_solver(
-    dt, solver_o0.epsilon, {}, &fmm::plummer::phi, &fmm::plummer::grad_phi);
+    dt, solver_o0_d3.epsilon, {}, &fmm::plummer::phi, &fmm::plummer::grad_phi);
 
-  std::vector<double> times_o0;
-  std::vector<double> times_o1;
+  std::vector<double> times_o0_d3;
+  std::vector<double> times_o1_d3;
+  std::vector<double> times_o0_d4;
+  std::vector<double> times_o1_d4;
+  std::vector<double> times_o0_d5;
+  std::vector<double> times_o1_d5;
   std::vector<double> times_naive;
   std::vector<int> samples_count;
+
+  std::vector<std::thread> threads;
 
   samples.reserve(nsamples_end);
 
@@ -165,35 +190,85 @@ TEST_CASE("Dependency of solving time against number of particles")
     while (samples.size() < nsamples)
       samples.emplace_back(fmm::Vec3{ dist(rng), dist(rng), dist(rng) }, mu);
 
-    solver_o0.samples.clear();
-    solver_o0.samples.insert(
-      solver_o0.samples.end(), samples.begin(), samples.end());
+    solver_o0_d3.samples.clear();
+    solver_o0_d3.samples.insert(
+      solver_o0_d3.samples.end(), samples.begin(), samples.end());
 
-    solver_o1.samples.clear();
-    solver_o1.samples.insert(
-      solver_o1.samples.end(), samples.begin(), samples.end());
+    solver_o1_d3.samples.clear();
+    solver_o1_d3.samples.insert(
+      solver_o1_d3.samples.end(), samples.begin(), samples.end());
+
+    solver_o0_d4.samples.clear();
+    solver_o0_d4.samples.insert(
+      solver_o0_d4.samples.end(), samples.begin(), samples.end());
+
+    solver_o1_d4.samples.clear();
+    solver_o1_d4.samples.insert(
+      solver_o1_d4.samples.end(), samples.begin(), samples.end());
+
+    solver_o0_d5.samples.clear();
+    solver_o0_d5.samples.insert(
+      solver_o0_d5.samples.end(), samples.begin(), samples.end());
+
+    solver_o1_d5.samples.clear();
+    solver_o1_d5.samples.insert(
+      solver_o1_d5.samples.end(), samples.begin(), samples.end());
 
     naive_solver.samples.clear();
     naive_solver.samples.insert(
       naive_solver.samples.end(), samples.begin(), samples.end());
 
-    std::thread t0([&solver_o0, &times_o0, updates]() {
+    threads.clear();
+
+    threads.emplace_back([&solver_o0_d3, updates, &times_o0_d3]() {
       clock_t start = clock();
       for (int i = 0; i < updates; i++)
-        solver_o0.update();
+        solver_o0_d3.update();
       clock_t end = clock();
-      times_o0.push_back((double)(end - start) / (double)CLOCKS_PER_SEC);
+      times_o0_d3.push_back((double)(end - start) / (double)CLOCKS_PER_SEC);
     });
 
-    std::thread t1([&solver_o1, &times_o1, updates]() {
+    threads.emplace_back([&solver_o1_d3, updates, &times_o1_d3]() {
       clock_t start = clock();
       for (int i = 0; i < updates; i++)
-        solver_o1.update();
+        solver_o1_d3.update();
       clock_t end = clock();
-      times_o1.push_back((double)(end - start) / (double)CLOCKS_PER_SEC);
+      times_o1_d3.push_back((double)(end - start) / (double)CLOCKS_PER_SEC);
     });
 
-    std::thread tnaive([&naive_solver, &times_naive, updates]() {
+    threads.emplace_back([&solver_o0_d4, updates, &times_o0_d4]() {
+      clock_t start = clock();
+      for (int i = 0; i < updates; i++)
+        solver_o0_d4.update();
+      clock_t end = clock();
+      times_o0_d4.push_back((double)(end - start) / (double)CLOCKS_PER_SEC);
+    });
+
+    threads.emplace_back([&solver_o1_d4, updates, &times_o1_d4]() {
+      clock_t start = clock();
+      for (int i = 0; i < updates; i++)
+        solver_o1_d4.update();
+      clock_t end = clock();
+      times_o1_d4.push_back((double)(end - start) / (double)CLOCKS_PER_SEC);
+    });
+
+    threads.emplace_back([&solver_o0_d5, updates, &times_o0_d5]() {
+      clock_t start = clock();
+      for (int i = 0; i < updates; i++)
+        solver_o0_d5.update();
+      clock_t end = clock();
+      times_o0_d5.push_back((double)(end - start) / (double)CLOCKS_PER_SEC);
+    });
+
+    threads.emplace_back([&solver_o1_d5, updates, &times_o1_d5]() {
+      clock_t start = clock();
+      for (int i = 0; i < updates; i++)
+        solver_o1_d5.update();
+      clock_t end = clock();
+      times_o1_d5.push_back((double)(end - start) / (double)CLOCKS_PER_SEC);
+    });
+
+    threads.emplace_back([&naive_solver, updates, &times_naive]() {
       clock_t start = clock();
       for (int i = 0; i < updates; i++)
         naive_solver.update();
@@ -201,27 +276,70 @@ TEST_CASE("Dependency of solving time against number of particles")
       times_naive.push_back((double)(end - start) / (double)CLOCKS_PER_SEC);
     });
 
-    t0.join();
-    t1.join();
-    tnaive.join();
+    for (auto& thread : threads)
+      thread.join();
   }
 
   plt::hold(plt::on);
 
-  plt::loglog(samples_count, times_o0, "-r")
+  plt::plot(samples_count, times_o0_d3, "-x")
     ->line_width(2)
-    .display_name("FMM 0-order");
-  plt::loglog(samples_count, times_o1, "-b")
+    .display_name("FMM 0-order, depth = 3");
+  plt::plot(samples_count, times_o1_d3, "-x")
     ->line_width(2)
-    .display_name("FMM 1st-order");
-  plt::loglog(samples_count, times_naive, "-g")
+    .display_name("FMM 1st-order depth = 3");
+  plt::plot(samples_count, times_o0_d4, "-x")
+    ->line_width(2)
+    .display_name("FMM 0-order, depth = 4");
+  plt::plot(samples_count, times_o1_d4, "-x")
+    ->line_width(2)
+    .display_name("FMM 1st-order depth = 4");
+  plt::plot(samples_count, times_o0_d5, "-x")
+    ->line_width(2)
+    .display_name("FMM 0-order, depth = 5");
+  plt::plot(samples_count, times_o1_d5, "-x")
+    ->line_width(2)
+    .display_name("FMM 1st-order depth = 5");
+  plt::plot(samples_count, times_naive, "-x")
     ->line_width(2)
     .display_name("Naive");
 
+  plt::hold(plt::off);
+
   plt::xlabel("Number of samples");
   plt::ylabel("Time for " + std::to_string(updates) + " updates (s)");
+  plt::legend();
+  plt::show();
+
+  plt::cla();
+  plt::hold(plt::on);
+
+  plt::loglog(samples_count, times_o0_d3, "-x")
+    ->line_width(2)
+    .display_name("FMM 0-order, depth = 3");
+  plt::loglog(samples_count, times_o1_d3, "-x")
+    ->line_width(2)
+    .display_name("FMM 1st-order depth = 3");
+  plt::loglog(samples_count, times_o0_d4, "-x")
+    ->line_width(2)
+    .display_name("FMM 0-order, depth = 4");
+  plt::loglog(samples_count, times_o1_d4, "-x")
+    ->line_width(2)
+    .display_name("FMM 1st-order depth = 4");
+  plt::loglog(samples_count, times_o0_d5, "-x")
+    ->line_width(2)
+    .display_name("FMM 0-order, depth = 5");
+  plt::loglog(samples_count, times_o1_d5, "-x")
+    ->line_width(2)
+    .display_name("FMM 1st-order depth = 5");
+  plt::loglog(samples_count, times_naive, "-x")
+    ->line_width(2)
+    .display_name("Naive");
 
   plt::hold(plt::off);
 
+  plt::xlabel("Number of samples");
+  plt::ylabel("Time for " + std::to_string(updates) + " updates (s)");
+  plt::legend();
   plt::show();
 }
