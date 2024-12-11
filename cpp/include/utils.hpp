@@ -30,7 +30,8 @@ struct fmt::formatter<fmm::Vec3>
   auto format(const fmm::Vec3& v, FormatContext& ctx) const
   {
     return format_to(
-      ctx.out(), "({:.2f}, {:.2f}, {:.2f})", v.a[0], v.a[1], v.a[2]);
+      ctx.out(), "({:.2f}, {:.2f}, {:.2f})", v.a[0], v.a[1], v.a[2]
+    );
   }
 };
 
@@ -54,6 +55,7 @@ struct fmt::formatter<fmm::Mat3x3>
       m.a[1][2],
       m.a[2][0],
       m.a[2][1],
-      m.a[2][2]);
+      m.a[2][2]
+    );
   }
 };

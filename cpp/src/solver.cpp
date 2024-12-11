@@ -17,7 +17,8 @@ GenericSolver::GenericSolver(
   const std::vector<MassSample>& samples,
   const std::function<double(const Vec3&)>& arg_phi,
   const std::function<Vec3(const Vec3&)>& arg_grad_phi,
-  const double G)
+  const double G
+)
   : dt(dt)
   , epsilon(epsilon)
   , samples(samples)
@@ -104,14 +105,16 @@ FMMSolver::FMMSolver(
   const std::function<double(const Vec3&)>& arg_phi,
   const std::function<Vec3(const Vec3&)>& arg_grad_phi,
   const std::optional<std::function<Mat3x3(const Vec3&)>>& arg_hess_phi,
-  const double G)
+  const double G
+)
   : GenericSolver(
       dt,
       4.0 * size / std::sqrt(static_cast<double>(samples.size())),
       samples,
       arg_phi,
       arg_grad_phi,
-      G)
+      G
+    )
   , tree(FMMTree(depth, size))
   , size(size)
   , hess_phi(arg_hess_phi)
@@ -158,7 +161,8 @@ FMMSolver::update()
   tree.update(
     samples,
     [this](const Vec3& diff) { return field_intensity(diff); },
-    [this](const Vec3& diff) { return field_jacobian(diff); });
+    [this](const Vec3& diff) { return field_jacobian(diff); }
+  );
 
   std::vector<Vec3> new_poss(samples.size());
 

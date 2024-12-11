@@ -45,10 +45,14 @@ FieldTensor::operator-(const FieldTensor& rhs) const
 FMMCell::FMMCell(const Vec3& centroid, const double size)
   : centroid(centroid)
   , size(size)
+  // clang-format off
   , field_tensor({
-      {0.0,  0.0, 0.0},
-      { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }
-})
+      { 0.0, 0.0, 0.0 },
+      { 0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0 }
+  })
+  // clang-format on
   , mass(0.0)
   , barycenter({ 0.0, 0.0, 0.0 })
   , interaction_list({})
@@ -60,7 +64,7 @@ FMMCell::contains_sample(const MassSample& sample) const
 {
   const auto diff = sample.position - centroid;
   return std::max(
-           { std::abs(diff.a[0]), std::abs(diff.a[1]), std::abs(diff.a[2]) }) <
-         size / 2.0;
+           { std::abs(diff.a[0]), std::abs(diff.a[1]), std::abs(diff.a[2]) }
+         ) < size / 2.0;
 }
 }

@@ -40,7 +40,8 @@ struct MassSample
   explicit MassSample(
     Vec3 pos,
     double mass = 1.0,
-    std::optional<Vec3> prev_pos = std::nullopt);
+    std::optional<Vec3> prev_pos = std::nullopt
+  );
 
   /**
    * @brief Calculate the speed of the mass sample

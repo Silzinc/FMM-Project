@@ -28,7 +28,8 @@ FMMTree::FMMTree(const index_t depth, const double size)
             Vec3{ size * ((static_cast<double>(i) + 0.5) / fn - 0.5),
                   size * ((static_cast<double>(j) + 0.5) / fn - 0.5),
                   size * ((static_cast<double>(k) + 0.5) / fn - 0.5) },
-            size / fn);
+            size / fn
+          );
         }
       }
     }
@@ -52,13 +53,15 @@ FMMTree::FMMTree(const index_t depth, const double size)
             for (const index_t ni :
                  range(2 * std::max(pi, 1l) - 2, std::min(width, 2 * pi + 4))) {
               for (const index_t nj : range(
-                     2 * std::max(pj, 1l) - 2, std::min(width, 2 * pj + 4))) {
+                     2 * std::max(pj, 1l) - 2, std::min(width, 2 * pj + 4)
+                   )) {
                 for (const index_t nk : range(
-                       2 * std::max(pk, 1l) - 2, std::min(width, 2 * pk + 4))) {
+                       2 * std::max(pk, 1l) - 2, std::min(width, 2 * pk + 4)
+                     )) {
                   const FMMCell& near_child = data[l][ni][nj][nk];
                   if (
-                    std::max({ std::max(ni, i) - std::min(ni, i),
-                               std::max(nj, j) - std::min(nj, j),
+                    std::max({ std::max(ni, i) - std::min(ni, i), //
+                               std::max(nj, j) - std::min(nj, j), //
                                std::max(nk, k) - std::min(nk, k) }) > 1)
                     cell.interaction_list.emplace_back(near_child);
                 }
@@ -98,11 +101,14 @@ FMMTree::get_leaf_from_pos(const Vec3& pos)
   double size = space_size();
   Vec3 local_pos = pos / size + Vec3{ 0.5, 0.5, 0.5 };
   index_t i = std::clamp(
-    static_cast<index_t>(std::floor(X(local_pos) * wf)), 0l, width - 1);
+    static_cast<index_t>(std::floor(X(local_pos) * wf)), 0l, width - 1
+  );
   index_t j = std::clamp(
-    static_cast<index_t>(std::floor(Y(local_pos) * wf)), 0l, width - 1);
+    static_cast<index_t>(std::floor(Y(local_pos) * wf)), 0l, width - 1
+  );
   index_t k = std::clamp(
-    static_cast<index_t>(std::floor(Z(local_pos) * wf)), 0l, width - 1);
+    static_cast<index_t>(std::floor(Z(local_pos) * wf)), 0l, width - 1
+  );
   return data[l][i][j][k];
 }
 
@@ -110,7 +116,8 @@ void
 FMMTree::update(
   std::vector<MassSample>& samples,
   const std::function<Vec3(const Vec3&)>& field,
-  const std::function<Mat3x3(const Vec3&)>& field_jacobian)
+  const std::function<Mat3x3(const Vec3&)>& field_jacobian
+)
 {
   using fmt::println;
 

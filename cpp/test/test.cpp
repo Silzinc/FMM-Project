@@ -34,7 +34,8 @@ TEST_CASE("FMM solver with uniformly randomly distributed samples")
   std::vector<fmm::MassSample> samples_copy_3 = samples;
 
   fmm::FMMSolver solver_o0(
-    size, dt, samples_copy_1, 3, &fmm::plummer::phi, &fmm::plummer::grad_phi);
+    size, dt, samples_copy_1, 3, &fmm::plummer::phi, &fmm::plummer::grad_phi
+  );
   fmm::FMMSolver solver_o1(
     size,
     dt,
@@ -42,25 +43,25 @@ TEST_CASE("FMM solver with uniformly randomly distributed samples")
     3,
     &fmm::plummer::phi,
     &fmm::plummer::grad_phi,
-    &fmm::plummer::hess_phi);
+    &fmm::plummer::hess_phi
+  );
   fmm::NaiveSolver naive_solver(
     dt,
     solver_o0.epsilon,
     samples_copy_3,
     &fmm::plummer::phi,
-    &fmm::plummer::grad_phi);
+    &fmm::plummer::grad_phi
+  );
   fmm::NaiveSolver solver0(
-    dt,
-    solver_o0.epsilon,
-    samples,
-    &fmm::plummer::phi,
-    &fmm::plummer::grad_phi);
+    dt, solver_o0.epsilon, samples, &fmm::plummer::phi, &fmm::plummer::grad_phi
+  );
 
   println(
     "Parameters: {} updates (dt = {}) with {} samples.",
     updates,
     dt,
-    samples.size());
+    samples.size()
+  );
   println("Average position starts at {}.", solver_o0.average_position());
   println("Standard deviation starts at {}.", solver_o0.std_pos());
   println("Total energy starts at {:.3f}.", solver_o0.total_energy());
@@ -72,13 +73,15 @@ TEST_CASE("FMM solver with uniformly randomly distributed samples")
     naive_solver.update();
   clock_t end = clock();
   println(
-    "Took {:.3f} seconds.", (double)(end - start) / (double)CLOCKS_PER_SEC);
+    "Took {:.3f} seconds.", (double)(end - start) / (double)CLOCKS_PER_SEC
+  );
   println("Average position is now {}.", naive_solver.average_position());
   println("Standard deviation is now {}.", naive_solver.std_pos());
   println("Total energy is now {:.3f}.", naive_solver.total_energy());
   println(
     "Square divergence with the start: {}.",
-    naive_solver.pos_divergence(solver0));
+    naive_solver.pos_divergence(solver0)
+  );
   println("");
 
   println("Use order 0 fmm solver...");
@@ -87,15 +90,18 @@ TEST_CASE("FMM solver with uniformly randomly distributed samples")
     solver_o0.update();
   end = clock();
   println(
-    "Took {:.3f} seconds.", (double)(end - start) / (double)CLOCKS_PER_SEC);
+    "Took {:.3f} seconds.", (double)(end - start) / (double)CLOCKS_PER_SEC
+  );
   println("Average position is now {}.", solver_o0.average_position());
   println("Standard deviation is now {}.", solver_o0.std_pos());
   println("Total energy is now {:.3f}.", solver_o0.total_energy());
   println(
     "Square divergence with the naive solver : {}.",
-    solver_o0.pos_divergence(naive_solver));
+    solver_o0.pos_divergence(naive_solver)
+  );
   println(
-    "Square divergence with the start: {}.", solver_o0.pos_divergence(solver0));
+    "Square divergence with the start: {}.", solver_o0.pos_divergence(solver0)
+  );
   println("");
 
   println("Use order 1 fmm solver...");
@@ -104,15 +110,18 @@ TEST_CASE("FMM solver with uniformly randomly distributed samples")
     solver_o1.update();
   end = clock();
   println(
-    "Took {:.3f} seconds.", (double)(end - start) / (double)CLOCKS_PER_SEC);
+    "Took {:.3f} seconds.", (double)(end - start) / (double)CLOCKS_PER_SEC
+  );
   println("Average position is now {}.", solver_o1.average_position());
   println("Standard deviation is now {}.", solver_o1.std_pos());
   println("Total energy is now {}.", solver_o1.total_energy());
   println(
     "Square divergence with the naive solver : {}.",
-    solver_o1.pos_divergence(naive_solver));
+    solver_o1.pos_divergence(naive_solver)
+  );
   println(
-    "Square divergence with the start: {}.", solver_o1.pos_divergence(solver0));
+    "Square divergence with the start: {}.", solver_o1.pos_divergence(solver0)
+  );
   println("");
 }
 
@@ -135,7 +144,8 @@ TEST_CASE("Dependency of solving time against number of particles")
   std::vector<fmm::MassSample> samples;
 
   fmm::FMMSolver solver_o0_d3(
-    size, dt, {}, 3, &fmm::plummer::phi, &fmm::plummer::grad_phi);
+    size, dt, {}, 3, &fmm::plummer::phi, &fmm::plummer::grad_phi
+  );
   fmm::FMMSolver solver_o1_d3(
     size,
     dt,
@@ -143,9 +153,11 @@ TEST_CASE("Dependency of solving time against number of particles")
     3,
     &fmm::plummer::phi,
     &fmm::plummer::grad_phi,
-    &fmm::plummer::hess_phi);
+    &fmm::plummer::hess_phi
+  );
   fmm::FMMSolver solver_o0_d4(
-    size, dt, {}, 4, &fmm::plummer::phi, &fmm::plummer::grad_phi);
+    size, dt, {}, 4, &fmm::plummer::phi, &fmm::plummer::grad_phi
+  );
   fmm::FMMSolver solver_o1_d4(
     size,
     dt,
@@ -153,9 +165,11 @@ TEST_CASE("Dependency of solving time against number of particles")
     4,
     &fmm::plummer::phi,
     &fmm::plummer::grad_phi,
-    &fmm::plummer::hess_phi);
+    &fmm::plummer::hess_phi
+  );
   fmm::FMMSolver solver_o0_d5(
-    size, dt, {}, 5, &fmm::plummer::phi, &fmm::plummer::grad_phi);
+    size, dt, {}, 5, &fmm::plummer::phi, &fmm::plummer::grad_phi
+  );
   fmm::FMMSolver solver_o1_d5(
     size,
     dt,
@@ -163,9 +177,11 @@ TEST_CASE("Dependency of solving time against number of particles")
     5,
     &fmm::plummer::phi,
     &fmm::plummer::grad_phi,
-    &fmm::plummer::hess_phi);
+    &fmm::plummer::hess_phi
+  );
   fmm::NaiveSolver naive_solver(
-    dt, solver_o0_d3.epsilon, {}, &fmm::plummer::phi, &fmm::plummer::grad_phi);
+    dt, solver_o0_d3.epsilon, {}, &fmm::plummer::phi, &fmm::plummer::grad_phi
+  );
 
   std::vector<double> times_o0_d3;
   std::vector<double> times_o1_d3;
@@ -192,31 +208,38 @@ TEST_CASE("Dependency of solving time against number of particles")
 
     solver_o0_d3.samples.clear();
     solver_o0_d3.samples.insert(
-      solver_o0_d3.samples.end(), samples.begin(), samples.end());
+      solver_o0_d3.samples.end(), samples.begin(), samples.end()
+    );
 
     solver_o1_d3.samples.clear();
     solver_o1_d3.samples.insert(
-      solver_o1_d3.samples.end(), samples.begin(), samples.end());
+      solver_o1_d3.samples.end(), samples.begin(), samples.end()
+    );
 
     solver_o0_d4.samples.clear();
     solver_o0_d4.samples.insert(
-      solver_o0_d4.samples.end(), samples.begin(), samples.end());
+      solver_o0_d4.samples.end(), samples.begin(), samples.end()
+    );
 
     solver_o1_d4.samples.clear();
     solver_o1_d4.samples.insert(
-      solver_o1_d4.samples.end(), samples.begin(), samples.end());
+      solver_o1_d4.samples.end(), samples.begin(), samples.end()
+    );
 
     solver_o0_d5.samples.clear();
     solver_o0_d5.samples.insert(
-      solver_o0_d5.samples.end(), samples.begin(), samples.end());
+      solver_o0_d5.samples.end(), samples.begin(), samples.end()
+    );
 
     solver_o1_d5.samples.clear();
     solver_o1_d5.samples.insert(
-      solver_o1_d5.samples.end(), samples.begin(), samples.end());
+      solver_o1_d5.samples.end(), samples.begin(), samples.end()
+    );
 
     naive_solver.samples.clear();
     naive_solver.samples.insert(
-      naive_solver.samples.end(), samples.begin(), samples.end());
+      naive_solver.samples.end(), samples.begin(), samples.end()
+    );
 
     threads.clear();
 

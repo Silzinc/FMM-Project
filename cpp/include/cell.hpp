@@ -57,7 +57,8 @@ struct FMMCell
 
   explicit FMMCell(
     const Vec3& centroid = Vec3{ 0.0, 0.0, 0.0 },
-    double size = 0.0);
+    double size = 0.0
+  );
   [[nodiscard]] bool contains_sample(const MassSample& sample) const;
 };
 }

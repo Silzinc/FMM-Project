@@ -3,7 +3,7 @@ BasedOnStyle: Mozilla
 AccessModifierOffset: -2
 IndentWidth: 2
 PointerAlignment: Left
-AlignAfterOpenBracket: AlwaysBreak
+AlignAfterOpenBracket: BlockIndent
 AlignArrayOfStructures: Left
 AllowShortBlocksOnASingleLine: Empty
 BreakBeforeBraces: Custom

@@ -38,7 +38,8 @@ struct GenericSolver
     const std::vector<MassSample>& samples,
     const std::function<double(const Vec3&)>& arg_phi,
     const std::function<Vec3(const Vec3&)>& arg_grad_phi,
-    double G = 0.1);
+    double G = 0.1
+  );
 
   /**
    * Helper function to compute the potential between two points, given their
@@ -105,7 +106,8 @@ struct FMMSolver : GenericSolver
     const std::function<Vec3(const Vec3&)>& arg_grad_phi,
     const std::optional<std::function<Mat3x3(const Vec3&)>>& arg_hess_phi =
       std::nullopt,
-    double G = 0.1);
+    double G = 0.1
+  );
 
   /**
    * Helper function to compute the field jacobian between two points, given
@@ -116,12 +118,10 @@ struct FMMSolver : GenericSolver
    * @return Field jacobian from the origin of diff to its end (Mat3x3)
    */
   [[nodiscard]] Mat3x3 field_jacobian(const Vec3& diff) const;
-  [[nodiscard]] Vec3 compute_close(
-    const FMMCell& cell,
-    const MassSample& sample) const;
-  [[nodiscard]] static Vec3 compute_far(
-    const FMMCell& cell,
-    const MassSample& sample);
+  [[nodiscard]] Vec3
+  compute_close(const FMMCell& cell, const MassSample& sample) const;
+  [[nodiscard]] static Vec3
+  compute_far(const FMMCell& cell, const MassSample& sample);
   void update();
 };
 

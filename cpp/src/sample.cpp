@@ -7,7 +7,8 @@ namespace fmm
 MassSample::MassSample(
   const Vec3 pos,
   const double mass,
-  const std::optional<Vec3> prev_pos)
+  const std::optional<Vec3> prev_pos
+)
   : mass(mass)
   , position(pos)
   , prev_pos(prev_pos.value_or(pos))

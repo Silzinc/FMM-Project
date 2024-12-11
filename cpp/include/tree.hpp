@@ -38,7 +38,8 @@ struct FMMTree
   void update(
     std::vector<MassSample>& samples,
     const std::function<Vec3(const Vec3&)>& field,
-    const std::function<Mat3x3(const Vec3&)>& field_jacobian);
+    const std::function<Mat3x3(const Vec3&)>& field_jacobian
+  );
 
   Array3D<FMMCell>& operator[](index_t i);
 };
