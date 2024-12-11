@@ -2,10 +2,11 @@
 
 ## Prerequisites
 
+- A C++ compiler (e.g. [GCC](https://gcc.gnu.org/), [Clang](https://clang.llvm.org/)), supporting the C++20 standard.
 - [CMake](https://cmake.org/)
 - [vcpkg](https://vcpkg.io/en/getting-started.html)
 - [Ninja](https://ninja-build.org/)
-- [C++ compiler](https://gcc.gnu.org/)
+- [Gnuplot](http://www.gnuplot.info/) (for the plotting test case)
 
 ## Getting started
 
@@ -30,15 +31,21 @@ Then run
 
 ```bash
 cmake --preset=default
+# or
+make sync
 ```
+
+Note : the first time you run this command will take a while to finish, as vcpkg downloads, configures and compiles the source code of each package instead of downloading a precompiled dynamic library.
 
 ## Building
 
 ```bash
 cmake --build build
+# or
+make
 ```
 
-The executable will be in `build`, with its name set in `CMakeLists.txt`.
+The executables (`fmm-solver` built from `src/main.cpp` and `fmm-solver-test` built from `test/test.cpp`) will be in `build`.
 
 ## Adding dependencies
 
