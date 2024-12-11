@@ -1,48 +1,61 @@
-#include "boost/multi_array.hpp"
-#include <cassert>
+#include "sample.hpp"
+#include "solver.hpp"
+#include "utils.hpp"
+#include <boost/qvm.hpp>
+#include <ctime>
 #include <fmt/core.h>
+#include <random>
 
-struct Foo
+int
+main()
 {
-  int x;
-  int y;
-  Foo(int x = 1, int y = 0) : x(x), y(y)
-  {
-  }
+  using fmt::println;
 
-  bool operator==(const Foo& rhs) const
-  {
-    return x == rhs.x && y == rhs.y;
-  }
-};
+  const double size = 10.0;
+  const double mu = 1.0;
 
-int main()
-{
-  // Create a 3D array that is 3 x 4 x 2
-  typedef boost::multi_array<Foo, 3> array_type;
-  typedef array_type::index index;
-  array_type A(boost::extents[3][4][2]);
+  std::mt19937_64 rng(42);
+  std::uniform_real_distribution<double> dist(-size * 0.5, size * 0.5);
 
-  // Assign values to the elements
-  int values = 0;
-  for (index i = 0; i != 3; ++i)
-    for (index j = 0; j != 4; ++j)
-      for (index k = 0; k != 2; ++k)
-      {
-        A[i][j][k] = Foo(values, values + 1);
-        values++;
-      }
+  const int nsamples = 100;
+  const int updates = 100;
+  const double dt = 0.1;
 
-  // Verify values
-  int verify = 0;
-  for (index i = 0; i != 3; ++i)
-    for (index j = 0; j != 4; ++j)
-      for (index k = 0; k != 2; ++k)
-      {
-        assert(A[i][j][k] == Foo(verify, verify + 1));
-        verify++;
-      }
+  int threads = 10;
 
-  fmt::print("Hello World!\n");
+  std::vector<fmm::MassSample> samples;
+  samples.reserve(nsamples);
+  for (int i = 0; i < nsamples; ++i)
+    samples.emplace_back(fmm::Vec3{ dist(rng), dist(rng), dist(rng) }, mu);
+  std::vector<fmm::MassSample> samples_copy_1 = samples;
+  std::vector<fmm::MassSample> samples_copy_2 = samples;
+  std::vector<fmm::MassSample> samples_copy_3 = samples;
+
+  fmm::FMMSolver solver_o0(
+    size, dt, samples_copy_1, 3, &fmm::plummer::phi, &fmm::plummer::grad_phi);
+
+  fmm::FMMSolver solver_o1(
+    size,
+    dt,
+    samples_copy_2,
+    3,
+    &fmm::plummer::phi,
+    &fmm::plummer::grad_phi,
+    &fmm::plummer::hess_phi);
+
+  fmm::NaiveSolver naive_solver(
+    dt,
+    solver_o0.epsilon,
+    samples_copy_3,
+    &fmm::plummer::phi,
+    &fmm::plummer::grad_phi);
+
+  fmm::NaiveSolver solver0(
+    dt,
+    solver_o0.epsilon,
+    samples,
+    &fmm::plummer::phi,
+    &fmm::plummer::grad_phi);
+
   return 0;
 }
