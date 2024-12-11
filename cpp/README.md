@@ -1,4 +1,4 @@
-# C++ project template
+# C++ code for the FMM Solver
 
 ## Prerequisites
 
