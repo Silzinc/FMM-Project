@@ -23,6 +23,23 @@ mu = 1.0
 def gen_random_samples(n: int):
     return [fmm.MassSample((np.random.rand(3) - 0.5) * size, mass=mu) for _ in range(n)]
 
+def gen_random_clusters(n_cluster, n_sample):
+    samples = []
+    mean_vdt = 0
+    e_z = np.array([0,0,0.6/size])
+    for cluster in range(n_cluster):
+        center = (np.random.rand(3) - 0.5) * size * 0.7
+        vdt = np.cross(center,e_z)
+        mean_vdt += vdt
+        for i in range(n_sample):
+            pos = np.random.randn(3) + center
+            last_pos = pos + vdt
+            samples.append(fmm.MassSample(pos, mass=mu, prev_pos=last_pos))
+    mean_vdt /= len(samples)
+    for i in range(len(samples)):
+        samples[i].prev_pos -= mean_vdt
+    return samples
+
 
 def phi(xi: float) -> float:
     return xi / (1 + xi * xi) ** (1 / 2)
@@ -36,8 +53,9 @@ def test_animation():
     vp.scene.width = vp.scene.height = 600
     vp.scene.background = vp.color.black
     vp.scene.range = 1.3
-    N = 50
-    vp.scene.title = f"{N} randomly generated samples"
+    N_sample = 1
+    N_cluster = 10
+    vp.scene.title = f"{N_sample * N_cluster} randomly generated samples"
     # Display frames per second and render time:
     vp.scene.append_to_title("<div id='fps'/>")
 
@@ -73,8 +91,9 @@ def test_animation():
     To pan left/right and up/down, Shift-drag.
     Touch screen: pinch/extend to zoom, swipe or two-finger rotate.""")
 
-    nb_images = 700
+    nb_images = 500
     p = []
+    p_sun = []
     size = 10.0
     mu = 1.0
 
@@ -96,11 +115,13 @@ def test_animation():
 
     def gen_random_samples(n: int):
         return [
-            fmm.MassSample((np.random.rand(3) - 0.5) * size, mass=mu) for _ in range(n)
+            fmm.MassSample((np.random.rand(3) - 0.5) * size * 0.7, mass=mu) for _ in range(n)
         ]
 
-    samples = gen_random_samples(N)
-    solver = fmm.FMMSolver(size, 0.8, deepcopy(samples), 3, phi, grad_phi)
+    samples = gen_random_clusters(N_cluster, N_sample)
+    samples.append(fmm.MassSample(np.array([0,0,0.01]), mass=3000*mu))
+    solver = fmm.FMMSolver(size, 0.1, deepcopy(samples), 3, phi, grad_phi, hess_phi)
+    
 
     # Générer toutes les positions des points pour les frames
     for step in range(nb_images):
@@ -113,10 +134,18 @@ def test_animation():
             pos=q,
             size_units="world",
             color=vp.color.white,
-            radius=solver.epsilon / 30,
+            radius=solver.epsilon / 60,
             visible=False,
         )
         p.append(nuage)
+        sun = solver.samples[-1]
+        p_sun.append(vp.sphere(
+            pos=vp.vec(sun.pos[0], sun.pos[1], sun.pos[2]),
+            size_units="world",
+            color=vp.color.orange,
+            radius=solver.epsilon / 30,
+            visible=False,
+        ))
         solver.update()
 
     # Créer les faces des cellules
@@ -127,11 +156,15 @@ def test_animation():
 
     # Animation et mise à jour dynamique des points
     while True and run:
-        for frame in p:
+        for image in range(len(p)):
+            frame = p[image]
+            sun_frame = p_sun[image]
             # Mettre à jour les positions des points avant de les rendre visibles
             frame.visible = True
-            vp.rate(20)  # Vitesse de l'animation
+            sun_frame.visible = True
+            vp.rate(30)  # Vitesse de l'animation
             frame.visible = False
+            sun_frame.visible = False
 
 
 def main(args):
