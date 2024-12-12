@@ -220,6 +220,9 @@ FMMTree::update(
               for (const index_t ck : { 2 * k, 2 * k + 1 }) {
                 FMMCell& child = data[l + 1][ci][cj][ck];
                 child.field_tensor += cell.field_tensor;
+                child.field_tensor.field +=
+                  cell.field_tensor.jacobian *
+                  (child.barycenter - cell.barycenter);
               }
             }
           }

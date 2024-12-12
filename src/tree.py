@@ -227,3 +227,7 @@ class FMMTree:
                                 for ck in [2 * k, 2 * k + 1]:
                                     child = self[l + 1][ci][cj][ck]
                                     child.field_tensor += cell.field_tensor
+                                    child.field_tensor.field += (
+                                        cell.field_tensor.jacobian
+                                        @ (child.barycenter - cell.barycenter)
+                                    )
