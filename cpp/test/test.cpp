@@ -136,8 +136,8 @@ TEST_CASE("Dependency of solving time against number of particles")
   const int updates = 50;
 
   const int nsamples_start = 25;
-  const int nsamples_end = 1000;
-  const float nsamples_factor = 1.1;
+  const int nsamples_end = 2000;
+  const float nsamples_factor = 1.2;
 
   std::mt19937_64 rng(42);
   std::uniform_real_distribution<double> dist(-size * 0.5, size * 0.5);
@@ -191,6 +191,22 @@ TEST_CASE("Dependency of solving time against number of particles")
   std::vector<double> times_o1_d5;
   std::vector<double> times_naive;
   std::vector<int> samples_count;
+
+  // Fixing epsilon for all simulations
+  solver_o0_d3.epsilon =
+    4.0 * size / std::sqrt(static_cast<double>(nsamples_end));
+  solver_o1_d3.epsilon =
+    4.0 * size / std::sqrt(static_cast<double>(nsamples_end));
+  solver_o0_d4.epsilon =
+    4.0 * size / std::sqrt(static_cast<double>(nsamples_end));
+  solver_o1_d4.epsilon =
+    4.0 * size / std::sqrt(static_cast<double>(nsamples_end));
+  solver_o0_d5.epsilon =
+    4.0 * size / std::sqrt(static_cast<double>(nsamples_end));
+  solver_o1_d5.epsilon =
+    4.0 * size / std::sqrt(static_cast<double>(nsamples_end));
+  naive_solver.epsilon =
+    4.0 * size / std::sqrt(static_cast<double>(nsamples_end));
 
   std::vector<std::thread> threads;
 
@@ -331,7 +347,7 @@ TEST_CASE("Dependency of solving time against number of particles")
 
   plt::xlabel("Number of samples");
   plt::ylabel("Time for " + std::to_string(updates) + " updates (s)");
-  plt::legend();
+  plt::legend()->location(plt::legend::general_alignment::topleft);
   plt::show();
 
   plt::cla();
@@ -363,6 +379,6 @@ TEST_CASE("Dependency of solving time against number of particles")
 
   plt::xlabel("Number of samples");
   plt::ylabel("Time for " + std::to_string(updates) + " updates (s)");
-  plt::legend();
+  plt::legend()->location(plt::legend::general_alignment::topleft);
   plt::show();
 }

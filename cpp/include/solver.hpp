@@ -41,6 +41,8 @@ struct GenericSolver
     double G = 0.1
   );
 
+  virtual void update() = 0;
+
   /**
    * Helper function to compute the potential between two points, given their
    * position difference.
@@ -122,7 +124,7 @@ struct FMMSolver : GenericSolver
   compute_close(const FMMCell& cell, const MassSample& sample) const;
   [[nodiscard]] static Vec3
   compute_far(const FMMCell& cell, const MassSample& sample);
-  void update();
+  void update() override;
 };
 
 /**
@@ -147,6 +149,6 @@ struct NaiveSolver : GenericSolver
   // Inherit constructor
   using GenericSolver::GenericSolver;
 
-  void update();
+  void update() override;
 };
 }
