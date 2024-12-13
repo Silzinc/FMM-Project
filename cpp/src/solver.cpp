@@ -12,18 +12,20 @@ namespace qvm = boost::qvm;
 namespace fmm
 {
 GenericSolver::GenericSolver(
+  const double size,
   const double dt,
   const double epsilon,
   const std::vector<MassSample>& samples,
-  const std::function<double(const Vec3&)>& arg_phi,
-  const std::function<Vec3(const Vec3&)>& arg_grad_phi,
+  const std::function<double(const Vec3&)>& phi,
+  const std::function<Vec3(const Vec3&)>& grad_phi,
   const double G
 )
-  : dt(dt)
+  : size(size)
+  , dt(dt)
   , epsilon(epsilon)
   , samples(samples)
-  , phi(arg_phi)
-  , grad_phi(arg_grad_phi)
+  , phi(phi)
+  , grad_phi(grad_phi)
   , G(G)
 {}
 
@@ -77,6 +79,7 @@ GenericSolver::pos_divergence(const GenericSolver& other) const
     divergence += qvm::mag_sqr(diff);
   }
   divergence /= static_cast<double>(samples.size());
+  divergence /= (size * size);
   return divergence;
 }
 
@@ -102,22 +105,22 @@ FMMSolver::FMMSolver(
   const double dt,
   const std::vector<MassSample>& samples,
   const index_t depth,
-  const std::function<double(const Vec3&)>& arg_phi,
-  const std::function<Vec3(const Vec3&)>& arg_grad_phi,
-  const std::optional<std::function<Mat3x3(const Vec3&)>>& arg_hess_phi,
+  const std::function<double(const Vec3&)>& phi,
+  const std::function<Vec3(const Vec3&)>& grad_phi,
+  const std::optional<std::function<Mat3x3(const Vec3&)>>& hess_phi,
   const double G
 )
   : GenericSolver(
+      size,
       dt,
       4.0 * size / std::sqrt(static_cast<double>(samples.size())),
       samples,
-      arg_phi,
-      arg_grad_phi,
+      phi,
+      grad_phi,
       G
     )
   , tree(FMMTree(depth, size))
-  , size(size)
-  , hess_phi(arg_hess_phi)
+  , hess_phi(hess_phi)
 {}
 
 Mat3x3

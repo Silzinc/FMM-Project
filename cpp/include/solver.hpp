@@ -26,6 +26,7 @@ struct GenericSolver
   virtual ~GenericSolver() = default;
 
   double dt;
+  double size;
   double epsilon;
   std::vector<MassSample> samples;
   std::function<double(const Vec3&)> phi;
@@ -33,11 +34,12 @@ struct GenericSolver
   double G;
 
   GenericSolver(
+    double size,
     double dt,
     double epsilon,
     const std::vector<MassSample>& samples,
-    const std::function<double(const Vec3&)>& arg_phi,
-    const std::function<Vec3(const Vec3&)>& arg_grad_phi,
+    const std::function<double(const Vec3&)>& phi,
+    const std::function<Vec3(const Vec3&)>& grad_phi,
     double G = 0.1
   );
 
@@ -96,7 +98,6 @@ struct GenericSolver
 struct FMMSolver : GenericSolver
 {
   FMMTree tree;
-  double size;
   std::optional<std::function<Mat3x3(const Vec3&)>> hess_phi;
 
   FMMSolver(
@@ -104,9 +105,9 @@ struct FMMSolver : GenericSolver
     double dt,
     const std::vector<MassSample>& samples,
     index_t depth,
-    const std::function<double(const Vec3&)>& arg_phi,
-    const std::function<Vec3(const Vec3&)>& arg_grad_phi,
-    const std::optional<std::function<Mat3x3(const Vec3&)>>& arg_hess_phi =
+    const std::function<double(const Vec3&)>& phi,
+    const std::function<Vec3(const Vec3&)>& grad_phi,
+    const std::optional<std::function<Mat3x3(const Vec3&)>>& hess_phi =
       std::nullopt,
     double G = 0.1
   );
