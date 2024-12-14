@@ -7,6 +7,7 @@
 #include <fmt/core.h>
 #include <matplot/matplot.h>
 #include <random>
+#include <thread>
 
 TEST_CASE("FMM solver with uniformly randomly distributed samples")
 {
@@ -198,6 +199,14 @@ TEST_CASE("Dependency of solving time against number of particles")
   std::vector<double> times_o0_d5;
   std::vector<double> times_o1_d5;
   std::vector<double> times_naive;
+
+  std::vector<double> accuracy_o0_d3;
+  std::vector<double> accuracy_o1_d3;
+  std::vector<double> accuracy_o0_d4;
+  std::vector<double> accuracy_o1_d4;
+  std::vector<double> accuracy_o0_d5;
+  std::vector<double> accuracy_o1_d5;
+
   std::vector<int> samples_count;
 
   // Fixing epsilon for all simulations
@@ -325,6 +334,13 @@ TEST_CASE("Dependency of solving time against number of particles")
 
     for (auto& thread : threads)
       thread.join();
+
+    accuracy_o0_d3.push_back(solver_o0_d3.pos_divergence(naive_solver));
+    accuracy_o1_d3.push_back(solver_o1_d3.pos_divergence(naive_solver));
+    accuracy_o0_d4.push_back(solver_o0_d4.pos_divergence(naive_solver));
+    accuracy_o1_d4.push_back(solver_o1_d4.pos_divergence(naive_solver));
+    accuracy_o0_d5.push_back(solver_o0_d5.pos_divergence(naive_solver));
+    accuracy_o1_d5.push_back(solver_o1_d5.pos_divergence(naive_solver));
   }
 
   plt::hold(plt::on);
@@ -387,6 +403,35 @@ TEST_CASE("Dependency of solving time against number of particles")
 
   plt::xlabel("Number of samples");
   plt::ylabel("Time for " + std::to_string(updates) + " updates (s)");
+  plt::legend()->location(plt::legend::general_alignment::topleft);
+  plt::show();
+
+  plt::cla();
+  plt::hold(plt::on);
+
+  plt::loglog(samples_count, accuracy_o0_d3, "-x")
+    ->line_width(2)
+    .display_name("FMM 0-order, depth = 3");
+  plt::loglog(samples_count, accuracy_o1_d3, "-x")
+    ->line_width(2)
+    .display_name("FMM 1st-order depth = 3");
+  plt::loglog(samples_count, accuracy_o0_d4, "-x")
+    ->line_width(2)
+    .display_name("FMM 0-order, depth = 4");
+  plt::loglog(samples_count, accuracy_o1_d4, "-x")
+    ->line_width(2)
+    .display_name("FMM 1st-order depth = 4");
+  plt::loglog(samples_count, accuracy_o0_d5, "-x")
+    ->line_width(2)
+    .display_name("FMM 0-order, depth = 5");
+  plt::loglog(samples_count, accuracy_o1_d5, "-x")
+    ->line_width(2)
+    .display_name("FMM 1st-order depth = 5");
+
+  plt::hold(plt::off);
+
+  plt::xlabel("Number of samples");
+  plt::ylabel("Square divergence from naive solver");
   plt::legend()->location(plt::legend::general_alignment::topleft);
   plt::show();
 }
