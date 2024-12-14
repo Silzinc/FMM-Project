@@ -35,12 +35,21 @@ class FieldTensor:
 class FMMCell:
     """
     Fields:
-      width: max distance between barycenter and contained particles (float)
+      centroid: position of the cell (vec3)
+
+      size: size of the cell (float)
+
       samples: list of mass samples in the cell, None if not leaf (list of MassSample or None)
+
       barycenter: centre of mass (vec3)
+
       mass: mass of the cell (float)
+
       field_tensor: when leaf cell sum of field tensor contributions of all other far cells (vec4)
-      neighbors: list of neighboring cells (list of FMMCell)
+
+      direct_neighbors: list of neighboring cells (list of FMMCell)
+
+      interaction_list: list of cells that are in direct interaction with the cell (list of FMMCell)
     """
 
     def __init__(
