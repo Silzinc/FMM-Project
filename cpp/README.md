@@ -45,7 +45,7 @@ cmake --build build
 make
 ```
 
-The executables (`fmm-solver` built from `src/main.cpp` and `fmm-solver-test` built from `test/test.cpp`) will be in `build`.
+This will build the shared library `libfmm-solver.[so, dll]` in `build/` depending on your operating system. It will also build an executable `fmm-solver-test` to run cases written in `test/test.cpp`.
 
 ## Adding dependencies
 
