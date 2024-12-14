@@ -46,6 +46,7 @@ TEST_CASE("FMM solver with uniformly randomly distributed samples")
     &fmm::plummer::hess_phi
   );
   fmm::NaiveSolver naive_solver(
+    size,
     dt,
     solver_o0.epsilon,
     samples_copy_3,
@@ -53,7 +54,12 @@ TEST_CASE("FMM solver with uniformly randomly distributed samples")
     &fmm::plummer::grad_phi
   );
   fmm::NaiveSolver solver0(
-    dt, solver_o0.epsilon, samples, &fmm::plummer::phi, &fmm::plummer::grad_phi
+    size,
+    dt,
+    solver_o0.epsilon,
+    samples,
+    &fmm::plummer::phi,
+    &fmm::plummer::grad_phi
   );
 
   println(
@@ -180,7 +186,12 @@ TEST_CASE("Dependency of solving time against number of particles")
     &fmm::plummer::hess_phi
   );
   fmm::NaiveSolver naive_solver(
-    dt, solver_o0_d3.epsilon, {}, &fmm::plummer::phi, &fmm::plummer::grad_phi
+    size,
+    dt,
+    solver_o0_d3.epsilon,
+    {},
+    &fmm::plummer::phi,
+    &fmm::plummer::grad_phi
   );
 
   std::vector<double> times_o0_d3;
