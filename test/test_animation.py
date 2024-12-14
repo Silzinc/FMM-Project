@@ -97,6 +97,7 @@ def test_animation():
     p_sun = []
     size = 10.0
     mu = 1.0
+    dt = 0.1
 
     def phi(xi: fmm.Vec3) -> float:
         xin = np.linalg.norm(xi)
@@ -121,7 +122,7 @@ def test_animation():
 
     samples = gen_random_clusters(N_cluster, N_sample)
     samples.append(fmm.MassSample(np.array([0,0,0.01]), mass=3000*mu))
-    solver = fmm.FMMSolver(size, 0.1, deepcopy(samples), 3, phi, grad_phi, hess_phi)
+    solver = fmm.FMMSolver(size, dt, deepcopy(samples), 3, phi, grad_phi, hess_phi)
     
 
     # Générer toutes les positions des points pour les frames
