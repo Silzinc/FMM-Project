@@ -1,10 +1,7 @@
-#include <thread>
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#include "sample.hpp"
-#include "solver.hpp"
-#include "utils.hpp"
+#include "fmm.hpp"
 #include <boost/qvm.hpp>
 #include <ctime>
 #include <fmt/core.h>
