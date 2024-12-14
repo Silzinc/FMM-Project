@@ -4,13 +4,13 @@
 
 - A C++ compiler (e.g. [GCC](https://gcc.gnu.org/), [Clang](https://clang.llvm.org/)), supporting the C++20 standard.
 - [CMake](https://cmake.org/)
-- [vcpkg](https://vcpkg.io/en/getting-started.html)
+- [vcpkg](https://vcpkg.io/en/geting-started.html).
 - [Ninja](https://ninja-build.org/)
 - [Gnuplot](http://www.gnuplot.info/) (for the plotting test case)
 
-## Getting started
+## Installation
 
-Add the following `CMakeUserPresets.json` (user specific):
+Add the following `CMakeUserPresets.json` (user specific) to the project directory:
 
 ```json
 {
@@ -56,3 +56,11 @@ vcpkg add port <package>
 ```
 
 Then, rerun the cmake preset command. vcpkg will indicate the lines to add to `CMakeLists.txt`. Add it, and rebuild.
+
+## Dependencies used
+
+- [Boost.MultiArray](https://www.boost.org/doc/libs/1_87_0/libs/multi_array/doc/index.html) is used to represent the 3D arrays in the `FMMTree` struct.
+- [Boost.QVM](https://www.boost.org/doc/libs/1_87_0/libs/qvm/doc/html/index.html) provides an implementation for the arithmetic on 3x3 matrices and size 3 vectors.
+- [fmt](https://fmt.dev/latest/index.html) is used for string formatting and printing.
+- [doctest](https://github.com/doctest/doctest) allows to write test cases in a convenient way.
+- [Matplot++](https://alandefreitas.github.io/matplotplusplus/) is a simple interface to Gnuplot for plotting.
