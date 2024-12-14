@@ -4,7 +4,7 @@
 
 - A C++ compiler (e.g. [GCC](https://gcc.gnu.org/), [Clang](https://clang.llvm.org/)), supporting the C++20 standard.
 - [CMake](https://cmake.org/)
-- [vcpkg](https://vcpkg.io/en/geting-started.html).
+- [vcpkg](https://learn.microsoft.com/fr-fr/vcpkg/get_started/get-started?pivots=shell-bash)
 - [Ninja](https://ninja-build.org/)
 - [Gnuplot](http://www.gnuplot.info/) (for the plotting test case)
 
