@@ -54,7 +54,7 @@ def test_animation():
     vp.scene.background = vp.color.black
     vp.scene.range = 1.3
     N_sample = 1
-    N_cluster = 10
+    N_cluster = 20
     vp.scene.title = f"{N_sample * N_cluster} randomly generated samples"
     # Display frames per second and render time:
     vp.scene.append_to_title("<div id='fps'/>")
@@ -92,10 +92,12 @@ def test_animation():
     Touch screen: pinch/extend to zoom, swipe or two-finger rotate.""")
 
     nb_images = 500
+    frame_rate = 40
     p = []
     p_sun = []
     size = 10.0
     mu = 1.0
+    dt = 0.1
 
     def phi(xi: fmm.Vec3) -> float:
         xin = np.linalg.norm(xi)
@@ -120,7 +122,7 @@ def test_animation():
 
     samples = gen_random_clusters(N_cluster, N_sample)
     samples.append(fmm.MassSample(np.array([0,0,0.01]), mass=3000*mu))
-    solver = fmm.FMMSolver(size, 0.1, deepcopy(samples), 3, phi, grad_phi, hess_phi)
+    solver = fmm.FMMSolver(size, dt, deepcopy(samples), 3, phi, grad_phi, hess_phi)
     
 
     # Générer toutes les positions des points pour les frames
@@ -155,16 +157,17 @@ def test_animation():
         cell_to_faces(cell)
 
     # Animation et mise à jour dynamique des points
-    while True and run:
-        for image in range(len(p)):
-            frame = p[image]
-            sun_frame = p_sun[image]
-            # Mettre à jour les positions des points avant de les rendre visibles
-            frame.visible = True
-            sun_frame.visible = True
-            vp.rate(30)  # Vitesse de l'animation
-            frame.visible = False
-            sun_frame.visible = False
+    while True:
+        if run:
+            for image in range(len(p)):
+                frame = p[image]
+                sun_frame = p_sun[image]
+                # Mettre à jour les positions des points avant de les rendre visibles
+                frame.visible = True
+                sun_frame.visible = True
+                vp.rate(frame_rate)  # Vitesse de l'animation
+                frame.visible = False
+                sun_frame.visible = False
 
 
 def main(args):
