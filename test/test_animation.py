@@ -59,6 +59,7 @@ def test_animation():
     # Display frames per second and render time:
     vp.scene.append_to_title("<div id='fps'/>")
 
+    global run
     run = True
 
     def Runbutton(b):
@@ -91,13 +92,17 @@ def test_animation():
     To pan left/right and up/down, Shift-drag.
     Touch screen: pinch/extend to zoom, swipe or two-finger rotate.""")
 
-    nb_images = 500
+    nb_images = 200
     frame_rate = 40
     p = []
+    p_naive = []
     p_sun = []
     size = 10.0
     mu = 1.0
     dt = 0.1
+
+    # Set to True to enable comparison with naive solver
+    naive_compare = True
 
     def phi(xi: fmm.Vec3) -> float:
         xin = np.linalg.norm(xi)
@@ -123,12 +128,15 @@ def test_animation():
     samples = gen_random_clusters(N_cluster, N_sample)
     samples.append(fmm.MassSample(np.array([0,0,0.01]), mass=3000*mu))
     solver = fmm.FMMSolver(size, dt, deepcopy(samples), 3, phi, grad_phi, hess_phi)
+    epsilon = 4 * size / np.sqrt(len(samples))
+    naive_solver = fmm.NaiveSolver(size,dt,epsilon,deepcopy(samples), phi, grad_phi)
     
 
     # Générer toutes les positions des points pour les frames
     for step in range(nb_images):
         print("Calculating frame " + str(step))
         q = []
+        q_naive = []
         for sample in solver.samples:
             next = sample
             q.append(vp.vec(next.pos[0], next.pos[1], next.pos[2]))
@@ -150,6 +158,21 @@ def test_animation():
         ))
         solver.update()
 
+        # Takes place only if naive solver is also required for comparison
+        if naive_compare:
+            for sample in naive_solver.samples:
+                next = sample
+                q_naive.append(vp.vec(next.pos[0], next.pos[1], next.pos[2]))
+            naive_nuage = vp.points(
+                pos=q_naive,
+                size_units="world",
+                color=vp.color.yellow,
+                radius=solver.epsilon / 60, # Warning, same size as the FMMsolver for graphic purpose
+                visible=False,
+            )
+            p_naive.append(naive_nuage)
+            naive_solver.update()
+
     # Créer les faces des cellules
 
     for cell in solver.iter_cells(-1):
@@ -157,17 +180,26 @@ def test_animation():
         cell_to_faces(cell)
 
     # Animation et mise à jour dynamique des points
+    image = 0
     while True:
         if run:
-            for image in range(len(p)):
-                frame = p[image]
-                sun_frame = p_sun[image]
-                # Mettre à jour les positions des points avant de les rendre visibles
-                frame.visible = True
-                sun_frame.visible = True
-                vp.rate(frame_rate)  # Vitesse de l'animation
-                frame.visible = False
-                sun_frame.visible = False
+            vp.rate(frame_rate)  # Vitesse de l'animation
+            frame = p[image]
+            sun_frame = p_sun[image]
+            frame.visible = False
+            sun_frame.visible = False
+            if naive_compare:
+                naive_frame = p_naive[image]
+                naive_frame.visible = False
+            image = (image+1)%len(p)
+            frame = p[image]
+            sun_frame = p_sun[image]
+            # Mettre à jour les positions des points avant de les rendre visibles
+            frame.visible = True
+            sun_frame.visible = True
+            if naive_compare:
+                naive_frame = p_naive[image]
+                naive_frame.visible = True
 
 
 def main(args):
