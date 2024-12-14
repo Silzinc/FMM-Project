@@ -16,6 +16,8 @@ class GenericSolver:
 
     Fields:
 
+        size: size of the simulation box (float)
+
         phi: function of r/epsilon representing the potential
             of one "particle" per unit mass (Callable[[Vec3], float])
 
@@ -33,6 +35,7 @@ class GenericSolver:
 
     def __init__(
         self,
+        size: float,
         dt: float,
         epsilon: float,
         samples: List[MassSample],
@@ -40,6 +43,7 @@ class GenericSolver:
         grad_phi: Callable[[Vec3], Vec3],
         G: float = 1e-1,
     ):
+        self.size = size
         self.phi = phi
         self.grad_phi = grad_phi
         self.dt = dt
@@ -105,7 +109,7 @@ class GenericSolver:
         div = 0
         for sample1, sample2 in zip(self.samples, lhs.samples):
             div += ((sample1.pos - sample2.pos) ** 2).sum()
-        return div / len(self.samples)
+        return div / len(self.samples) / (self.size**2)
 
     def total_energy(self) -> float:
         """
@@ -282,6 +286,8 @@ class NaiveSolver(GenericSolver):
     Used for speed comparison with better algorithms.
 
     Fields:
+
+        size: size of the simulation cube (float)
 
         phi: function of r/epsilon representing the potential
             of one "particle" per unit mass (Callable[[Vec3], float])

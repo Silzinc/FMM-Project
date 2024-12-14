@@ -42,15 +42,15 @@ def test_random_samples_fmm():
         for _ in range(nsamples)
     ]
 
-    solver_o0 = fmm.FMMSolver(size, dt, deepcopy(samples), 3, phi, grad_phi)
+    solver_o0 = fmm.FMMSolver(size, dt, deepcopy(samples), 4, phi, grad_phi)
     solver_o1 = fmm.FMMSolver(
-        size, dt, deepcopy(samples), 3, phi, grad_phi, hess_phi=hess_phi
+        size, dt, deepcopy(samples), 4, phi, grad_phi, hess_phi=hess_phi
     )
     naive_solver = fmm.NaiveSolver(
-        dt, solver_o0.epsilon, deepcopy(samples), phi, grad_phi
+        size, dt, solver_o0.epsilon, deepcopy(samples), phi, grad_phi
     )
     solver_init = fmm.NaiveSolver(
-        dt, solver_o0.epsilon, deepcopy(samples), phi, grad_phi
+        size, dt, solver_o0.epsilon, deepcopy(samples), phi, grad_phi
     )
 
     print(
