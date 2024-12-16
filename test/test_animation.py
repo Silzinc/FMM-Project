@@ -19,6 +19,11 @@ np.set_printoptions(precision=3, suppress=True)
 size = 10.0
 mu = 1.0
 
+# Set to True to enable comparison with naive solver
+naive_compare = False
+# Set to True to put a high-mass sample in the center of the volume
+enable_sun = True
+
 
 def gen_random_samples(n: int):
     return [fmm.MassSample((np.random.rand(3) - 0.5) * size, mass=mu) for _ in range(n)]
@@ -27,6 +32,8 @@ def gen_random_clusters(n_cluster, n_sample):
     samples = []
     mean_vdt = 0
     e_z = np.array([0,0,0.6/size])
+    if not enable_sun:
+        e_z /= 2
     for cluster in range(n_cluster):
         center = (np.random.rand(3) - 0.5) * size * 0.7
         vdt = np.cross(center,e_z)
@@ -53,8 +60,8 @@ def test_animation():
     vp.scene.width = vp.scene.height = 600
     vp.scene.background = vp.color.black
     vp.scene.range = 1.3
-    N_sample = 1
-    N_cluster = 20
+    N_sample = 5
+    N_cluster = 10
     vp.scene.title = f"{N_sample * N_cluster} randomly generated samples"
     # Display frames per second and render time:
     vp.scene.append_to_title("<div id='fps'/>")
@@ -93,7 +100,7 @@ def test_animation():
     Touch screen: pinch/extend to zoom, swipe or two-finger rotate.""")
 
     nb_images = 200
-    frame_rate = 40
+    frame_rate = 30
     p = []
     p_naive = []
     p_sun = []
@@ -101,8 +108,6 @@ def test_animation():
     mu = 1.0
     dt = 0.1
 
-    # Set to True to enable comparison with naive solver
-    naive_compare = True
 
     def phi(xi: fmm.Vec3) -> float:
         xin = np.linalg.norm(xi)
@@ -126,8 +131,9 @@ def test_animation():
         ]
 
     samples = gen_random_clusters(N_cluster, N_sample)
-    samples.append(fmm.MassSample(np.array([0,0,0.01]), mass=3000*mu))
-    solver = fmm.FMMSolver(size, dt, deepcopy(samples), 3, phi, grad_phi, hess_phi)
+    if enable_sun:
+        samples.append(fmm.MassSample(np.array([0,0,0.01]), mass=3000*mu)) # adding a sun
+    solver = fmm.FMMSolver(size, dt, deepcopy(samples), 3, phi, grad_phi, hess_phi) # add hess_phi as arg for 1st order
     epsilon = 4 * size / np.sqrt(len(samples))
     naive_solver = fmm.NaiveSolver(size,dt,epsilon,deepcopy(samples), phi, grad_phi)
     
@@ -148,14 +154,15 @@ def test_animation():
             visible=False,
         )
         p.append(nuage)
-        sun = solver.samples[-1]
-        p_sun.append(vp.sphere(
-            pos=vp.vec(sun.pos[0], sun.pos[1], sun.pos[2]),
-            size_units="world",
-            color=vp.color.orange,
-            radius=solver.epsilon / 30,
-            visible=False,
-        ))
+        if enable_sun:
+            sun = solver.samples[-1]
+            p_sun.append(vp.sphere(
+                pos=vp.vec(sun.pos[0], sun.pos[1], sun.pos[2]),
+                size_units="world",
+                color=vp.color.orange,
+                radius=solver.epsilon / 30,
+                visible=False,
+            ))
         solver.update()
 
         # Takes place only if naive solver is also required for comparison
@@ -185,18 +192,20 @@ def test_animation():
         if run:
             vp.rate(frame_rate)  # Vitesse de l'animation
             frame = p[image]
-            sun_frame = p_sun[image]
             frame.visible = False
-            sun_frame.visible = False
+            if enable_sun:
+                sun_frame = p_sun[image]            
+                sun_frame.visible = False
             if naive_compare:
                 naive_frame = p_naive[image]
                 naive_frame.visible = False
+            # Mettre à jour les positions des points avant de les rendre visibles
             image = (image+1)%len(p)
             frame = p[image]
-            sun_frame = p_sun[image]
-            # Mettre à jour les positions des points avant de les rendre visibles
             frame.visible = True
-            sun_frame.visible = True
+            if enable_sun:
+                sun_frame = p_sun[image]            
+                sun_frame.visible = True
             if naive_compare:
                 naive_frame = p_naive[image]
                 naive_frame.visible = True
