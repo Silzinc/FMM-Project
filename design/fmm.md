@@ -1,7 +1,5 @@
 [toc]
 
-## Jonas
-
 $$
 \def\x{\vec x}
 \def\z{\vec z}
@@ -62,50 +60,3 @@ $$
 5. Calculer les tenseurs de champs des cellules.
    1. Ces tenseurs ont 4 coordonnées. Les initialiser à $(0, 0, 0, 0)$ pour toutes les cellules (peut être fait dans l'étape 4).
    2. À suivre... (pas encore trouvé comment implémenter efficacement la descente dans l'arbre pour le calcul des champs).
-
-```python
-class OctTree:
-   """
-   Fields:
-      children: children of the node (list of 8 OctTree | None)
-      dtype: type of the node (Any)
-      value: value of the node (dtype)
-   """
-
-class FMMCell:
-   """
-   Fields:
-      width: max distance between barycenter and contained particles (float)
-      samples: list of mass samples in the cell, None if not leaf (List[MassSample] | None)
-      barycenter: centre of mass (vec3)
-      mass: mass of the cell (float)
-      field_tensor: when leaf cell sum of field tensor contributions of all other far cells (vec4)
-      neighbors: list of neighboring cells (List[FMMCell])
-
-   """
-
-class MassSample:
-   """
-   Fields:
-      mass: mass of the particle (float)
-      position: position of the particle (vec3)
-      previous_position: previous position of the particle (for Verlet integration) (vec3)
-   Methods:
-      speed: speed of the particle (float -> vec3)
-   """
-
-class FMMSolver:
-   """
-   Fields:
-      size: size of the simulation cube (float)
-      gradphi: function of r/epsilon representing the gradient
-               potential of one "particle" (Callable[[float], float])
-      (hess_phi: function of r/epsilon giving the structure of
-                 the Hessian matrix of the potential of one "particle"
-                 (Callable[[float], matrix3x3]))
-      dt: timestep (float)
-   Methods:
-      epsilon: particle smoothing size (None -> float)
-
-   """
-```
