@@ -7,7 +7,6 @@ Many body simulation (FMM method)
 ## Project organisation
 
 - [src](./src): production source code.
-- [design](./design): algorithm design scripts/notebooks. Please note that the design is not up to date with the final implementation. It is also not particularly readable.
 - [test](./test): tests and data analysis.
 - [cpp](./cpp): C++ implementation of the FMM algorithm.
 
