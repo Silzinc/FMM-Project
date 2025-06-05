@@ -28,14 +28,6 @@ uv run some_script.py
 uv run pytest test/test_fmm.py -s
 ```
 
-### Without `uv`
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
 ## Using `uv`
 
 ### Handle python packages
